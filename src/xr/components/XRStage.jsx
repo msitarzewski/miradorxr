@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { XR } from '@react-three/xr';
 import ns from '../../config/css-ns';
 import { xrStore } from '../xrStore';
-import { HelloScene } from './HelloScene';
+import { PaintingScene } from './PaintingScene';
 
 // BackgroundPluginArea is display:none, and R3F only creates its renderer for
 // a canvas with a non-zero size. <XR> needs that renderer before a session can
@@ -25,7 +25,7 @@ export function XRStage() {
     <div className={ns('xr-stage')} style={stageStyle} aria-hidden="true">
       <Canvas frameloop="demand">
         <XR store={xrStore}>
-          <HelloScene />
+          <PaintingScene />
         </XR>
       </Canvas>
     </div>,

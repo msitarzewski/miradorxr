@@ -5,8 +5,7 @@ import { createXRStore } from '@react-three/xr';
  * the same store: Safari only grants an immersive session from inside a user
  * activation, so the button's click handler is what requests the session.
  *
- * On localhost in a browser with no navigator.xr, @react-three/xr injects
- * Meta's IWER emulator (Quest 3 profile). Desktop Chrome already exposes
- * navigator.xr, so IWER skips itself there; use the visionOS Simulator.
+ * The built-in emulator stays off: its dev UI bundles three 0.165, whose
+ * renderer throws on this project's three materials every frame.
  */
-export const xrStore = createXRStore();
+export const xrStore = createXRStore({ emulate: false });

@@ -1,0 +1,24 @@
+{
+  "@context" : "http://iiif.io/api/image/2/context.json",
+  "@id" : "https://api.nga.gov/iiif/public/objects/1/0/6/3/8/2/106382-primary-0-nativeres.ptif",
+  "protocol" : "http://iiif.io/api/image",
+  "width" : 21687,
+  "height" : 28273,
+  "sizes" : [
+     { "width" : 84, "height" : 110 },
+     { "width" : 169, "height" : 220 },
+     { "width" : 338, "height" : 441 },
+     { "width" : 677, "height" : 883 },
+     { "width" : 1355, "height" : 1767 },
+     { "width" : 2710, "height" : 3534 }
+  ],
+  "tiles" : [
+     { "width" : 256, "height" : 256, "scaleFactors" : [ 1, 2, 4, 8, 16, 32, 64, 128, 256 ] }
+  ],
+  "profile" : [
+     "http://iiif.io/api/image/2/level1.json",
+     { "formats" : [ "jpg" ],
+       "qualities" : [ "native","color","gray" ],
+       "supports" : ["regionByPct","regionSquare","sizeByForcedWh","sizeByWh","sizeAboveFull","rotationBy90s","mirroring"] }
+  ]
+}
