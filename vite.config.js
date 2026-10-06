@@ -121,6 +121,12 @@ export default defineConfig({
     },
   },
   server: {
+    // Lets a headset on the same tailnet reach the dev server through
+    // `tailscale serve`, which provides the HTTPS that WebXR requires
+    allowedHosts: ['.ts.net'],
+    // tailscale serve proxies to 127.0.0.1; on macOS Node binds "localhost"
+    // to IPv6 ::1 only, which the proxy can't reach
+    host: '127.0.0.1',
     fs: {
       allow: [
         path.resolve(import.meta.dirname, 'src'),

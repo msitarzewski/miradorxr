@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { EnterXRButton } from '../../../src/xr/components/EnterXRButton';
 import { xrStore } from '../../../src/xr/xrStore';
 
-// A real store would try to inject the WebXR emulator into the test DOM
+// A real store would try to set up WebXR in the test DOM
 vi.mock('../../../src/xr/xrStore', () => ({ xrStore: { enterVR: vi.fn() } }));
 
 describe('EnterXRButton', () => {
@@ -13,18 +13,26 @@ describe('EnterXRButton', () => {
   });
 
   it('renders a button with the given class', () => {
-    render(<EnterXRButton className="xyz" />);
+    render(<EnterXRButton className="xyz" enterXR={vi.fn()} windowId="window-1" />);
     expect(screen.getByRole('button')).toHaveClass('xyz');
   });
 
-  it('requests an immersive-vr session from the click', async () => {
+  it('renders nothing without a window to show', () => {
+    render(<EnterXRButton enterXR={vi.fn()} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('records the window, then requests an immersive-vr session from the click', async () => {
+    const enterXR = vi.fn();
     xrStore.enterVR.mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<EnterXRButton />);
+    render(<EnterXRButton enterXR={enterXR} windowId="window-1" />);
 
     await user.click(screen.getByRole('button'));
 
+    expect(enterXR).toHaveBeenCalledWith('window-1');
     expect(xrStore.enterVR).toHaveBeenCalledTimes(1);
+    expect(enterXR.mock.invocationCallOrder[0]).toBeLessThan(xrStore.enterVR.mock.invocationCallOrder[0]);
   });
 
   it('warns instead of throwing when the session cannot start', async () => {
@@ -32,7 +40,7 @@ describe('EnterXRButton', () => {
     xrStore.enterVR.mockRejectedValue(error);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const user = userEvent.setup();
-    render(<EnterXRButton />);
+    render(<EnterXRButton enterXR={vi.fn()} windowId="window-1" />);
 
     await user.click(screen.getByRole('button'));
 

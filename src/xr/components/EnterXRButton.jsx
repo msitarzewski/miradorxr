@@ -5,20 +5,23 @@ import MiradorMenuButton from '../../containers/MiradorMenuButton';
 import { xrStore } from '../xrStore';
 
 /**
- * Workspace control panel button that starts an immersive-vr session.
- * enterVR() must run synchronously inside the click for Safari's
- * user-activation requirement.
+ * Starts an immersive-vr session showing a window's current work. Renders
+ * nothing without a window to show. enterVR() must run synchronously inside
+ * the click for Safari's user-activation requirement.
  */
-export function EnterXRButton({ className = undefined }) {
+export function EnterXRButton({ className = undefined, enterXR, labelKey = 'enterXR', windowId = undefined }) {
   const { t } = useTranslation();
+
+  if (!windowId) return null;
 
   /** */
   const handleClick = () => {
+    enterXR(windowId);
     xrStore.enterVR().catch((error) => console.warn('[Mirador XR: could not start session]', error));
   };
 
   return (
-    <MiradorMenuButton className={className} aria-label={t('enterXR')} onClick={handleClick}>
+    <MiradorMenuButton className={className} aria-label={t(labelKey)} onClick={handleClick}>
       <ViewInArIcon />
     </MiradorMenuButton>
   );
@@ -26,4 +29,7 @@ export function EnterXRButton({ className = undefined }) {
 
 EnterXRButton.propTypes = {
   className: PropTypes.string,
+  enterXR: PropTypes.func.isRequired,
+  labelKey: PropTypes.string,
+  windowId: PropTypes.string,
 };

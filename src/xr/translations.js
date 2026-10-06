@@ -2,5 +2,6 @@
 export default {
   en: {
     enterXR: 'Enter XR gallery',
+    viewInXR: 'View in XR',
   },
 };

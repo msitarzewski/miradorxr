@@ -1,18 +1,16 @@
 import { useSelector } from 'react-redux';
-import { getCanvasLabel, getCurrentCanvas, getManifestTitle, getWindowIds, selectInfoResponse } from '../../state/selectors';
+import { getCurrentCanvas, selectInfoResponse } from '../../state/selectors';
 
 /**
- * The image the first Mirador window is showing. Mirador's window saga has
- * already fetched its info.json for the 2D viewer, so XR reuses it.
+ * The image a Mirador window is showing. Mirador's window saga has already
+ * fetched its info.json for the 2D viewer, so XR reuses it.
  *
- * @returns {{canvasLabel, infoJson, manifestTitle}}
+ * @returns {{canvasId, infoId, infoJson}} infoId is Mirador's key for the
+ * image service, which can differ from the id inside info.json
  */
-export function useCurrentImage() {
-  const windowId = useSelector((state) => getWindowIds(state)[0]);
-  const canvasId = useSelector((state) => windowId && getCurrentCanvas(state, { windowId })?.id);
+export function useCurrentImage(windowId) {
+  const canvasId = useSelector((state) => (windowId ? getCurrentCanvas(state, { windowId })?.id : undefined));
   const infoResponse = useSelector((state) => canvasId && selectInfoResponse(state, { canvasId, windowId }));
-  const canvasLabel = useSelector((state) => canvasId && getCanvasLabel(state, { canvasId, windowId }));
-  const manifestTitle = useSelector((state) => windowId && getManifestTitle(state, { windowId }));
 
-  return { canvasLabel, infoJson: infoResponse?.json, manifestTitle };
+  return { canvasId, infoId: infoResponse?.id, infoJson: infoResponse?.json };
 }
