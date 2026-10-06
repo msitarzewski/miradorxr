@@ -150,6 +150,14 @@ export default [
     },
   },
 
+  // React Three Fiber elements take three.js props (position, args, attach...)
+  {
+    files: ['src/xr/**/*.jsx'],
+    rules: {
+      'react/no-unknown-property': 'off',
+    },
+  },
+
   // Test file overrides
   {
     files: ['**/__tests__/**', '**/*.test.js', '**/*.test.jsx', 'setupTest.js'],

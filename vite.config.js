@@ -9,11 +9,17 @@ import * as packageJson from './package.json' with { type: 'json' };
 const peers = Object.keys(packageJson.peerDependencies);
 const peerPatterns = [...peers, ...peers.map((peer) => new RegExp(`^${peer}/`))];
 
+// GitHub Pages serves the demo site from a sub-path (e.g. /miradorxr/), which
+// the Pages workflow passes in. Either host builds the demo pages, not the library.
+const pagesBase = process.env.GITHUB_PAGES_BASE;
+const demoSite = process.env.NETLIFY || pagesBase;
+
 /**
  * Vite configuration
  */
 export default defineConfig({
-  ...(process.env.NETLIFY
+  base: pagesBase || '/',
+  ...(demoSite
     ? {
         build: {
           rolldownOptions: {
@@ -60,9 +66,9 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    !process.env.NETLIFY && esmExternalRequirePlugin({ external: peerPatterns }),
-    // Copy fixtures to dist for Netlify
-    process.env.NETLIFY && {
+    !demoSite && esmExternalRequirePlugin({ external: peerPatterns }),
+    // Copy fixtures to dist for the demo site
+    demoSite && {
       closeBundle: async () => {
         const fixturesSource = path.resolve(import.meta.dirname, '__tests__/fixtures');
         const fixturesDest = path.resolve(import.meta.dirname, 'dist/__tests__/fixtures');
