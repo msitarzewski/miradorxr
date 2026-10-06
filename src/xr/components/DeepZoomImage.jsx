@@ -27,9 +27,20 @@ const noRaycast = () => {};
  * per-eye resolution and draws each wanted tile, or its nearest loaded
  * ancestor until the tile arrives. Tiles come from the scene's shared cache,
  * wanted under this image's id. Every tile shares the gallery's paint
- * relief lighting, read at its own resolution.
+ * relief lighting, read at its own resolution. `progressRef.current` is
+ * kept at `{ ready, total }`: how many of the tiles for the current view
+ * have arrived, of those that haven't failed.
  */
-export function DeepZoomImage({ boxHeight, boxWidth, cache, infoJson, paint, statsRef = undefined, ...groupProps }) {
+export function DeepZoomImage({
+  boxHeight,
+  boxWidth,
+  cache,
+  infoJson,
+  paint,
+  progressRef = undefined,
+  statsRef = undefined,
+  ...groupProps
+}) {
   const gl = useThree((state) => state.gl);
   const grid = useMemo(() => createTileGrid(infoJson), [infoJson]);
   const width = Math.min(boxWidth, boxHeight / grid.aspectRatio);
@@ -103,6 +114,14 @@ export function DeepZoomImage({ boxHeight, boxWidth, cache, infoJson, paint, sta
     });
     cache.want([...wanted.values()], grid.id);
 
+    if (progressRef) {
+      const needed = [...new Set([...baseTiles, ...selected].map(({ key }) => key))].filter((key) => !cache.failed.has(key));
+      Object.assign(progressRef.current, {
+        ready: needed.filter((key) => cache.isLoaded(key)).length,
+        total: needed.length,
+      });
+    }
+
     syncMeshes(drawList);
 
     if (statsRef) {
@@ -158,5 +177,6 @@ DeepZoomImage.propTypes = {
   cache: PropTypes.instanceOf(TileCache).isRequired,
   infoJson: PropTypes.object.isRequired,
   paint: PropTypes.objectOf(PropTypes.shape({ value: PropTypes.any })).isRequired,
+  progressRef: PropTypes.shape({ current: PropTypes.object }),
   statsRef: PropTypes.shape({ current: PropTypes.object }),
 };

@@ -1,6 +1,110 @@
 # Mirador
 [![Node.js CI](https://github.com/ProjectMirador/mirador/workflows/Node.js%20CI/badge.svg)](https://github.com/ProjectMirador/mirador/actions/workflows/node.js.yml) [![codecov](https://codecov.io/gh/ProjectMirador/mirador/branch/main/graph/badge.svg)](https://codecov.io/gh/ProjectMirador/mirador) 
 
+## Mirador XR: a WebXR gallery for IIIF
+
+This fork adds an immersive WebXR viewer to Mirador. Open a IIIF manifest in
+Mirador, put on a headset, and walk it as a gallery: every image hangs on the
+walls of a skylit room, streamed at the institution's full archival
+resolution.
+
+**Try it:** [msitarzewski.github.io/miradorxr](https://msitarzewski.github.io/miradorxr/).
+Open it in Safari on Apple Vision Pro, then choose **Enter XR gallery** (the
+cube in the left-hand panel) or **View in XR** in a window's top bar.
+
+### In the gallery
+
+- **Walk the room.** Every image in the manifest is hung in order, clockwise,
+  starting with the one the window was showing. Beside each work is a wall
+  label with its title, details and credit, from the same data as Mirador's
+  information panel.
+- **Pinch a painting** to walk up to it. Pinch it again to step in close
+  (0.55 m) or back to viewing distance (1.5 m). **‹ Previous** and **Next ›**
+  step along the wall.
+- **Teleport anywhere:** look down at the floor, then pinch and hold where you
+  want to stand. Move your pinching hand the way you want to face; pull it
+  back towards you to land turned round. Release to go, or raise your hand to
+  cancel.
+- **Snap turn:** pinch a bare wall or the ceiling and flick sideways to turn
+  45°.
+- **Relief: On/Off** lights the brushwork as raised paint under a raking
+  light.
+- **Gloss: On/Off** lets the varnish catch the light. Glints shift as you
+  move your head, and differ slightly between your eyes, as real gloss does.
+  The two toggles are independent; with both off you see the image exactly as
+  published.
+- **Leave** with the Digital Crown. Mirador reopens on the work you were at,
+  zoomed to the detail you were looking at.
+
+### Detail and fidelity
+
+- **Full resolution, streamed as IIIF tiles.** The National Gallery of Art's
+  van Gogh *Self-Portrait* is 21,687 × 28,273 pixels (613 megapixels). Hung
+  1 m tall, that's about 35 µm of painting per pixel.
+- **Detail follows your eyes.** Tiles are chosen from the headset's own
+  per-eye resolution: each tile is refined until its pixels are as fine as
+  the display pixels it covers, seen from where you stand. Lean in and finer
+  levels stream in; coarser levels fill in meanwhile, so the image is never
+  blank. A thin bar under the frame shows while sharper detail is still
+  loading.
+- **Measured on Apple Vision Pro** (visionOS 27, Safari 27):
+  - 4493 × 3604 pixels per eye, 16× anisotropic filtering, 16384-pixel
+    textures.
+  - 88 fps with 146 tile meshes, about 300 draw calls.
+  - At 0.6 m from a 1 m painting it draws level 5 of 8 (373 tiles, 121 MB).
+    The full resolution only becomes resolvable about 7 cm from the canvas.
+- **Memory stays bounded.** All works share one tile cache with a 192 MB
+  budget and six loads in flight. Tiles out of view aren't fetched, and the
+  least recently wanted are evicted first.
+- **Relief works at true scale.** It's computed per texel at each tile's real
+  size, at 0.6 mm of paint per unit of lightness, so finer tiles show finer
+  brushwork while flat areas keep their exact colour. It's an approximation
+  from the image's lightness, not measured surface data.
+- **Colour is untouched.** Paintings, labels and buttons are drawn unlit and
+  without tone mapping, so a work's colours are shown as the institution
+  published them. Only the room is lit, with neutral tone mapping.
+- **Scale is not yet true.** Every work hangs 1 m tall for now; true
+  physical scale from IIIF or museum data is on the roadmap.
+
+### Devices and sources
+
+- **Apple Vision Pro, Safari:** developed and tested here. Input is look and
+  pinch (WebXR transient-pointer).
+- **Meta Quest Browser:** should work, since it's a standard `immersive-vr`
+  session, but it's untested.
+- **Desktop browsers:** Mirador works as usual. Entering XR needs a headset,
+  or the [IWER](https://github.com/meta-quest/immersive-web-emulation-runtime)
+  emulator for development.
+- **Image servers must send CORS headers,** because WebGL can't draw
+  cross-origin images otherwise. The National Gallery of Art, the Bodleian
+  and Gallica all work.
+
+### How it's built
+
+- **A set of Mirador plugins** in [`src/xr`](src/xr): entry buttons in the
+  workspace panel and window top bar, a Redux reducer for XR state, and a
+  three.js stage in the background plugin area.
+- **Rendering and tiles:** [three.js](https://threejs.org),
+  [React Three Fiber](https://r3f.docs.pmnd.rs) and
+  [@react-three/xr](https://pmndrs.github.io/xr). OpenSeadragon's IIIF tile
+  source does the tile maths, and image info comes through Mirador's own
+  sagas, so IIIF auth still applies.
+- **The room:** oak herringbone parquet (a
+  [CC0 scan from Poly Haven](src/xr/assets/herringbone-parquet/README.md)),
+  painted drywall and frosted skylights. It's lit by an environment map
+  rendered from the room itself.
+
+### Developing the XR viewer
+
+Run `npm start` and open [http://127.0.0.1:4444/xr-gallery.html](http://127.0.0.1:4444/xr-gallery.html).
+WebXR needs a secure context, so to try changes in a headset, serve the dev
+server to it over HTTPS (for example with an HTTPS tunnel). The gallery's
+catalogue of manifests is in
+[`__tests__/integration/mirador-configs/xr-gallery.js`](__tests__/integration/mirador-configs/xr-gallery.js).
+Pushes to `xr/main` deploy to GitHub Pages.
+
+The rest of this README is upstream Mirador's.
+
 ## For Mirador Users
 We recommend installing Mirador using a JavaScript package manager like [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/).
 

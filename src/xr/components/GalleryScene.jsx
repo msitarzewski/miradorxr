@@ -23,7 +23,7 @@ const DEFAULT_EYE_HEIGHT = 1.2;
 // Stop waiting for slow or failing info.json responses and hang the rest by the manifest
 const INFO_TIMEOUT_MS = 8000;
 const STATS_POSITION = [-0.7, 0.9, -1];
-// Per-frame easing of the paint relief as it comes and goes
+// Per-frame easing of the paint relief and gloss as they come and go
 const PAINT_EASING = 0.08;
 
 /** The hung room, with navigation around it */
@@ -41,6 +41,7 @@ function HungGallery({ infoResponses, layout, works, windowId }) {
   const statsRef = useRef({});
   const paint = useMemo(createPaintUniforms, []);
   const [paintOn, setPaintOn] = useState(false);
+  const [glossOn, setGlossOn] = useState(false);
 
   const { activeIndex, eyeHeight, headInWorld, select, step, teleportTo, turn } = useGalleryNavigation({
     curtain,
@@ -55,6 +56,7 @@ function HungGallery({ infoResponses, layout, works, windowId }) {
   useEffect(() => () => cache.dispose(), [cache]);
   useFrame(() => {
     paint.amount.value += ((paintOn ? 1 : 0) - paint.amount.value) * PAINT_EASING;
+    paint.glossAmount.value += ((glossOn ? 1 : 0) - paint.glossAmount.value) * PAINT_EASING;
   });
 
   useViewportHandoff({
@@ -78,7 +80,9 @@ function HungGallery({ infoResponses, layout, works, windowId }) {
           cache={cache}
           canvasId={work.canvasId}
           centreHeight={eyeHeight ?? DEFAULT_EYE_HEIGHT}
+          glossOn={glossOn}
           infoJson={infoResponses[index]?.json}
+          onGloss={() => setGlossOn((on) => !on)}
           onNext={() => step(1)}
           onPaint={() => setPaintOn((on) => !on)}
           onPrevious={() => step(-1)}
@@ -149,8 +153,6 @@ function Gallery({ works, windowId }) {
   return (
     <>
       <color attach="background" args={['#141416']} />
-      <ambientLight intensity={0.6} />
-      <directionalLight intensity={1} position={[1, 3, 1]} />
       {layout ? (
         <HungGallery infoResponses={infoResponses} layout={layout} works={works} windowId={windowId} />
       ) : (

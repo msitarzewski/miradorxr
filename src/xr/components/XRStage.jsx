@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { useSelector } from 'react-redux';
 import { Canvas } from '@react-three/fiber';
 import { XR } from '@react-three/xr';
+import { NeutralToneMapping } from 'three';
 import ns from '../../config/css-ns';
 import { getXRWindowId } from '../state';
 import { xrStore } from '../xrStore';
@@ -20,6 +21,9 @@ const stageStyle = {
   visibility: 'hidden',
   width: 1,
 };
+// Neutral tone mapping keeps the room's whites white and its colours true;
+// the paintings, labels and buttons aren't tone mapped at all
+const rendererOptions = { toneMapping: NeutralToneMapping };
 
 /**
  * Hosts the three.js canvas that WebXR sessions render into. The gallery
@@ -30,7 +34,7 @@ export function XRStage() {
 
   return createPortal(
     <div className={ns('xr-stage')} style={stageStyle} aria-hidden="true">
-      <Canvas frameloop="demand">
+      <Canvas frameloop="demand" gl={rendererOptions}>
         <XR store={xrStore}>{windowId && <GalleryScene windowId={windowId} />}</XR>
       </Canvas>
     </div>,

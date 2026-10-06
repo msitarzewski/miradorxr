@@ -5,7 +5,7 @@ import { CanvasTexture, SRGBColorSpace } from 'three';
 const PIXELS_PER_METRE = 2800;
 const HEIGHT = 0.055;
 
-/** Draws a pill-shaped button label; an active toggle is filled green */
+/** Draws a pill-shaped button label: dark, to stand out on the pale walls; an active toggle is filled green */
 function drawButton(text, active) {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -15,12 +15,12 @@ function drawButton(text, active) {
   canvas.width = Math.ceil(context.measureText(text).width + height * 1.2);
   canvas.height = height;
 
-  context.fillStyle = active ? '#3ec46d' : '#f3efe6';
+  context.fillStyle = active ? '#3ec46d' : '#2d2a26';
   context.beginPath();
   context.roundRect(0, 0, canvas.width, canvas.height, canvas.height / 2);
   context.fill();
   context.font = font;
-  context.fillStyle = '#1d1b18';
+  context.fillStyle = active ? '#1d1b18' : '#f3efe6';
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.fillText(text, canvas.width / 2, canvas.height / 2 + 2);

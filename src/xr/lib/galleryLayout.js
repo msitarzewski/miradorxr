@@ -97,3 +97,30 @@ export function layoutGallery(aspectRatios, { paintingHeight = 1 } = {}) {
 export function viewingSpot({ x, yaw, z }, distance) {
   return { x: x + Math.sin(yaw) * distance, yaw, z: z + Math.cos(yaw) * distance };
 }
+
+/**
+ * Square skylights in an even grid over the room, about `spacing` metres
+ * apart, each centred in its share of the ceiling and never more than
+ * `coverage` of that share across, so a small room still keeps ceiling
+ * round its skylights.
+ *
+ * @returns {Array<{x, z, size}>} centres on the ceiling and side length, in metres
+ */
+export function layoutSkylights({ depth, width }, { coverage = 0.6, size = 1.4, spacing = 3.6 } = {}) {
+  const across = Math.max(1, Math.round(width / spacing));
+  const deep = Math.max(1, Math.round(depth / spacing));
+  const side = Math.min(size, (width / across) * coverage, (depth / deep) * coverage);
+  const skylights = [];
+
+  for (let row = 0; row < deep; row += 1) {
+    for (let column = 0; column < across; column += 1) {
+      skylights.push({
+        size: side,
+        x: -width / 2 + (width * (column + 0.5)) / across,
+        z: -depth / 2 + (depth * (row + 0.5)) / deep,
+      });
+    }
+  }
+
+  return skylights;
+}
