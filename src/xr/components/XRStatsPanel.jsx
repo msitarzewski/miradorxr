@@ -62,7 +62,7 @@ export function XRStatsPanel({ label = '', statsRef, ...meshProps }) {
 
   return (
     <mesh {...meshProps}>
-      <planeGeometry args={[0.6, 0.3]} />
+      <planeGeometry args={[0.6, (0.6 * CANVAS_HEIGHT) / CANVAS_WIDTH]} />
       <meshBasicMaterial map={texture} toneMapped={false} />
     </mesh>
   );

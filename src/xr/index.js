@@ -1,7 +1,7 @@
 import { getCurrentCanvas, getFocusedWindowId, getMiradorCanvasWrapper, getWindowIds } from '../state/selectors';
 import { EnterXRButton } from './components/EnterXRButton';
 import { XRStage } from './components/XRStage';
-import { enterXR, xrReducer } from './state';
+import { enterXR, exitXR, xrReducer } from './state';
 import translations from './translations';
 
 /** Whether the window's current canvas has a IIIF image the XR scene can stream */
@@ -18,7 +18,7 @@ export default [
   {
     component: EnterXRButton,
     config: { translations },
-    mapDispatchToProps: { enterXR },
+    mapDispatchToProps: { enterXR, exitXR },
     // The workspace button shows the focused window's work, else the first window's
     mapStateToProps: (state) => {
       const windowId = getFocusedWindowId(state) || getWindowIds(state)[0];
@@ -31,7 +31,7 @@ export default [
   },
   {
     component: EnterXRButton,
-    mapDispatchToProps: { enterXR },
+    mapDispatchToProps: { enterXR, exitXR },
     mapStateToProps: (state, { windowId }) => ({
       labelKey: 'viewInXR',
       windowId: hasIiifImage(state, windowId) ? windowId : undefined,

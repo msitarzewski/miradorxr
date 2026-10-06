@@ -89,6 +89,31 @@ describe('TileCache', () => {
     expect(cache.bytes).toEqual(200);
   });
 
+  it("keeps tiles another owner still wants, and lets them go once it's released", async () => {
+    const cache = createCache({ budgetBytes: 100 });
+    cache.want([tile('a')], 'first');
+    cache.want([tile('b')], 'second');
+    await loader.finish('https://example.org/a');
+    await loader.finish('https://example.org/b');
+
+    cache.want([tile('a')], 'first');
+    expect(cache.isLoaded('b')).toBe(true);
+
+    cache.release('second');
+    cache.want([tile('a')], 'first');
+    expect(cache.isLoaded('a')).toBe(true);
+    expect(cache.isLoaded('b')).toBe(false);
+  });
+
+  it('does not abort a load another owner still wants', () => {
+    const cache = createCache();
+    cache.want([tile('shared')], 'first');
+    cache.want([tile('shared')], 'second');
+    cache.want([], 'first');
+
+    expect(loader.pending.get('https://example.org/shared').signal.aborted).toBe(false);
+  });
+
   it('does not retry a tile that failed', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const cache = createCache();

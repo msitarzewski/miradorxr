@@ -9,7 +9,7 @@ import { xrStore } from '../xrStore';
  * nothing without a window to show. enterVR() must run synchronously inside
  * the click for Safari's user-activation requirement.
  */
-export function EnterXRButton({ className = undefined, enterXR, labelKey = 'enterXR', windowId = undefined }) {
+export function EnterXRButton({ className = undefined, enterXR, exitXR, labelKey = 'enterXR', windowId = undefined }) {
   const { t } = useTranslation();
 
   if (!windowId) return null;
@@ -17,7 +17,10 @@ export function EnterXRButton({ className = undefined, enterXR, labelKey = 'ente
   /** */
   const handleClick = () => {
     enterXR(windowId);
-    xrStore.enterVR().catch((error) => console.warn('[Mirador XR: could not start session]', error));
+    xrStore.enterVR().catch((error) => {
+      console.warn('[Mirador XR: could not start session]', error);
+      exitXR();
+    });
   };
 
   return (
@@ -30,6 +33,7 @@ export function EnterXRButton({ className = undefined, enterXR, labelKey = 'ente
 EnterXRButton.propTypes = {
   className: PropTypes.string,
   enterXR: PropTypes.func.isRequired,
+  exitXR: PropTypes.func.isRequired,
   labelKey: PropTypes.string,
   windowId: PropTypes.string,
 };

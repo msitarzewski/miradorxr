@@ -25,6 +25,11 @@ export function createTileLoader({ anisotropy = 1 } = {}) {
     texture.needsUpdate = true;
 
     // RGBA8 plus a full mip chain
-    return { bytes: Math.round(bitmap.width * bitmap.height * 4 * (4 / 3)), texture };
+    return {
+      bytes: Math.round(bitmap.width * bitmap.height * 4 * (4 / 3)),
+      height: bitmap.height,
+      texture,
+      width: bitmap.width,
+    };
   };
 }

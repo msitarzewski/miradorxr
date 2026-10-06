@@ -1,9 +1,10 @@
 /**
- * Holds tile textures under a byte budget. Missing tiles load in priority
- * order, a few at a time; loads for tiles no longer wanted are aborted; and
- * when over budget, the least recently wanted tiles are evicted. A tile
- * that is still wanted is never evicted, so callers include everything they
- * draw in each want() call.
+ * Holds tile textures under one byte budget, shared by every image in the
+ * scene. Missing tiles load in priority order, a few at a time; loads for
+ * tiles no longer wanted are aborted; and when over budget, the least
+ * recently wanted tiles are evicted. Each image wants tiles as its own
+ * owner, and a tile any owner still wants is never evicted, so each owner
+ * includes everything it draws in its want() call.
  *
  * @param {function} options.load - (url, signal) => Promise<{texture, bytes}>
  */
@@ -17,6 +18,7 @@ export class TileCache {
     this.entries = new Map();
     this.inFlight = new Map();
     this.failed = new Set();
+    this.wantedBy = new Map();
     this.bytes = 0;
   }
 
@@ -31,12 +33,14 @@ export class TileCache {
   }
 
   /**
-   * @param {Array<{key, url, priority}>} tiles - everything currently needed;
-   * a lower priority loads first
+   * @param {Array<{key, url, priority}>} tiles - everything this owner
+   * currently needs; a lower priority loads first
+   * @param {string} owner - which image is asking
    */
-  want(tiles) {
+  want(tiles, owner = 'default') {
     const time = this.now();
-    const wanted = new Set(tiles.map(({ key }) => key));
+    this.wantedBy.set(owner, new Set(tiles.map(({ key }) => key)));
+    const wanted = this.allWanted();
 
     tiles.forEach(({ key }) => {
       const entry = this.entries.get(key);
@@ -56,6 +60,18 @@ export class TileCache {
       .forEach((tile) => this.start(tile));
 
     this.evict(wanted);
+  }
+
+  /** Forgets an owner's wants, e.g. when its image leaves the scene */
+  release(owner) {
+    this.wantedBy.delete(owner);
+  }
+
+  /** @private */
+  allWanted() {
+    const wanted = new Set();
+    this.wantedBy.forEach((keys) => keys.forEach((key) => wanted.add(key)));
+    return wanted;
   }
 
   /** @private */
@@ -103,6 +119,7 @@ export class TileCache {
     this.inFlight.clear();
     this.entries.forEach(({ texture }) => texture.dispose());
     this.entries.clear();
+    this.wantedBy.clear();
     this.bytes = 0;
   }
 }

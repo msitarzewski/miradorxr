@@ -13,12 +13,12 @@ describe('EnterXRButton', () => {
   });
 
   it('renders a button with the given class', () => {
-    render(<EnterXRButton className="xyz" enterXR={vi.fn()} windowId="window-1" />);
+    render(<EnterXRButton className="xyz" enterXR={vi.fn()} exitXR={vi.fn()} windowId="window-1" />);
     expect(screen.getByRole('button')).toHaveClass('xyz');
   });
 
   it('renders nothing without a window to show', () => {
-    render(<EnterXRButton enterXR={vi.fn()} />);
+    render(<EnterXRButton enterXR={vi.fn()} exitXR={vi.fn()} />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
@@ -26,7 +26,7 @@ describe('EnterXRButton', () => {
     const enterXR = vi.fn();
     xrStore.enterVR.mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<EnterXRButton enterXR={enterXR} windowId="window-1" />);
+    render(<EnterXRButton enterXR={enterXR} exitXR={vi.fn()} windowId="window-1" />);
 
     await user.click(screen.getByRole('button'));
 
@@ -35,15 +35,17 @@ describe('EnterXRButton', () => {
     expect(enterXR.mock.invocationCallOrder[0]).toBeLessThan(xrStore.enterVR.mock.invocationCallOrder[0]);
   });
 
-  it('warns instead of throwing when the session cannot start', async () => {
+  it('warns and clears the XR window when the session cannot start', async () => {
     const error = new Error('WebXR not supported');
+    const exitXR = vi.fn();
     xrStore.enterVR.mockRejectedValue(error);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const user = userEvent.setup();
-    render(<EnterXRButton enterXR={vi.fn()} windowId="window-1" />);
+    render(<EnterXRButton enterXR={vi.fn()} exitXR={exitXR} windowId="window-1" />);
 
     await user.click(screen.getByRole('button'));
 
     await vi.waitFor(() => expect(warn).toHaveBeenCalledWith('[Mirador XR: could not start session]', error));
+    expect(exitXR).toHaveBeenCalled();
   });
 });

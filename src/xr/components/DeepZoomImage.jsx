@@ -1,21 +1,17 @@
 import { useEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Box3, Frustum, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
+import { Box3, Frustum, Matrix4, Mesh, MeshBasicMaterial, Vector3 } from 'three';
 import { createTileGrid } from '../lib/tileGrid';
 import { baseLevel, resolveDrawList, selectTiles, tilesAtLevel } from '../lib/selectTiles';
 import { TileCache } from '../lib/TileCache';
-import { createTileLoader } from '../lib/loadTileTexture';
+import { flippedPlane } from '../lib/flippedPlane';
+import { applyPaintRelief } from '../lib/paintRelief';
 
 // Re-select tiles every few frames; tile loading is far slower than this
 const SELECT_EVERY_N_FRAMES = 8;
 // Finer levels sit fractionally in front, so they cover coarser fallbacks
 const LEVEL_DEPTH_STEP = 0.0002;
-
-// One unit quad shared by every tile, with V flipped for ImageBitmap textures
-const tileGeometry = new PlaneGeometry(1, 1);
-const { uv } = tileGeometry.attributes;
-for (let i = 0; i < uv.count; i += 1) uv.setY(i, 1 - uv.getY(i));
 
 const frustum = new Frustum();
 const projectionView = new Matrix4();
@@ -26,26 +22,26 @@ const eyeInImage = new Vector3();
 const noRaycast = () => {};
 
 /**
- * A IIIF image as a plane of streamed tiles, `width` metres wide and centred
- * on its group. While an XR session runs it selects tiles from the headset's
+ * A IIIF image as a plane of streamed tiles, fitted inside a width x height
+ * box (metres) at its own proportions and centred on its group. While an XR session runs it selects tiles from the headset's
  * per-eye resolution and draws each wanted tile, or its nearest loaded
- * ancestor until the tile arrives.
+ * ancestor until the tile arrives. Tiles come from the scene's shared cache,
+ * wanted under this image's id. Every tile shares the gallery's paint
+ * relief lighting, read at its own resolution.
  */
-export function DeepZoomImage({ infoJson, statsRef = undefined, width, ...groupProps }) {
+export function DeepZoomImage({ boxHeight, boxWidth, cache, infoJson, paint, statsRef = undefined, ...groupProps }) {
   const gl = useThree((state) => state.gl);
   const grid = useMemo(() => createTileGrid(infoJson), [infoJson]);
+  const width = Math.min(boxWidth, boxHeight / grid.aspectRatio);
   const baseTiles = useMemo(() => tilesAtLevel(grid, baseLevel(grid)), [grid]);
-  const cache = useMemo(
-    () => new TileCache({ load: createTileLoader({ anisotropy: gl.capabilities.getMaxAnisotropy() }) }),
-    [gl],
-  );
   const group = useRef();
   const meshes = useRef(new Map());
   const frameCount = useRef(0);
 
-  useEffect(() => () => cache.dispose(), [cache]);
+  // Drop this image's wants when it changes or leaves the scene
+  useEffect(() => () => cache.release(grid.id), [cache, grid]);
 
-  // Drop the previous image's tile meshes when the image changes
+  // Drop the tile meshes when the image changes or leaves the scene
   useEffect(() => {
     const tileMeshes = meshes.current;
     return () => {
@@ -105,7 +101,7 @@ export function DeepZoomImage({ infoJson, statsRef = undefined, width, ...groupP
     [...baseTiles, ...selected, ...drawList].forEach((tile) => {
       wanted.set(tile.key, { key: tile.key, priority: tile.level, url: grid.url(tile.level, tile.x, tile.y) });
     });
-    cache.want([...wanted.values()]);
+    cache.want([...wanted.values()], grid.id);
 
     syncMeshes(drawList);
 
@@ -137,7 +133,10 @@ export function DeepZoomImage({ infoJson, statsRef = undefined, width, ...groupP
     drawList.forEach(({ key, level, x, y }) => {
       if (meshes.current.has(key)) return;
       const rect = grid.bounds(level, x, y);
-      const mesh = new Mesh(tileGeometry, new MeshBasicMaterial({ map: cache.texture(key), toneMapped: false }));
+      const material = new MeshBasicMaterial({ map: cache.texture(key), toneMapped: false });
+      // Metres per texel of this tile, so brushwork reads at its true scale
+      applyPaintRelief(material, { texelSize: (rect.w * width) / grid.pixelSize(level, x, y).w, uniforms: paint });
+      const mesh = new Mesh(flippedPlane, material);
       mesh.position.set(
         (rect.x + rect.w / 2 - 0.5) * width,
         (width * grid.aspectRatio) / 2 - (rect.y + rect.h / 2) * width,
@@ -154,7 +153,10 @@ export function DeepZoomImage({ infoJson, statsRef = undefined, width, ...groupP
 }
 
 DeepZoomImage.propTypes = {
+  boxHeight: PropTypes.number.isRequired,
+  boxWidth: PropTypes.number.isRequired,
+  cache: PropTypes.instanceOf(TileCache).isRequired,
   infoJson: PropTypes.object.isRequired,
+  paint: PropTypes.objectOf(PropTypes.shape({ value: PropTypes.any })).isRequired,
   statsRef: PropTypes.shape({ current: PropTypes.object }),
-  width: PropTypes.number.isRequired,
 };
