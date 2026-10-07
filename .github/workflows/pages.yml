@@ -34,11 +34,14 @@ jobs:
       - run: npx vite build --config vite.config.js
         env:
           GITHUB_PAGES_BASE: ${{ steps.pages.outputs.base_path }}/
-      - name: Point the site root at the XR landing page
-        run: >
-          printf '<!DOCTYPE html><meta charset="utf-8"><title>Mirador XR</title>
-          <meta http-equiv="refresh" content="0; url=demo/xr.html">
-          <a href="demo/xr.html">Mirador XR</a>\n' > dist/index.html
+      # The landing page is served at the site root itself, not through a
+      # redirect, so link previews of the root find its Open Graph tags. Its
+      # asset URLs are all absolute, so the copy works from either path.
+      # The social card goes at the fixed address those tags point to.
+      - name: Serve the landing page at the site root, with its social card
+        run: |
+          cp dist/demo/xr.html dist/index.html
+          cp demo/xr-landing/og-image.jpg dist/og-image.jpg
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
