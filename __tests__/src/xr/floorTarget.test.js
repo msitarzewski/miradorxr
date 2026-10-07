@@ -1,4 +1,4 @@
-import { floorHit, handHeading, insideRoom } from '../../../src/xr/lib/floorTarget';
+import { floorHit, handHeading, insideFloors } from '../../../src/xr/lib/floorTarget';
 
 describe('floorHit', () => {
   it('finds where a downward gaze meets the floor', () => {
@@ -14,17 +14,30 @@ describe('floorHit', () => {
   });
 });
 
-describe('insideRoom', () => {
+describe('insideFloors', () => {
   const room = { depth: 8, width: 12 };
 
   it('leaves spots inside the room alone, right up to near the walls', () => {
-    expect(insideRoom({ x: 5.8, z: -3.8 }, room)).toEqual({ x: 5.8, z: -3.8 });
+    expect(insideFloors({ x: 5.8, z: -3.8 }, [room])).toEqual({ x: 5.8, z: -3.8 });
   });
 
   it('keeps spots 15 cm clear of the walls', () => {
-    const spot = insideRoom({ x: 6.5, z: -4.2 }, room);
+    const spot = insideFloors({ x: 6.5, z: -4.2 }, [room]);
     expect(spot.x).toBeCloseTo(5.85);
     expect(spot.z).toBeCloseTo(-3.85);
+  });
+
+  it('lets you land in the next room, or the doorway between, and otherwise the nearest floor', () => {
+    const doorway = { depth: 0.55, margin: { x: 0.15, z: 0 }, width: 1.8, z: 4.125 };
+    const reading = { depth: 6, width: 9, z: 7.25 };
+    const floors = [room, doorway, reading];
+
+    expect(insideFloors({ x: 1, z: 6 }, floors)).toEqual({ x: 1, z: 6 });
+    expect(insideFloors({ x: 0.2, z: 4.1 }, floors)).toEqual({ x: 0.2, z: 4.1 });
+    // In the wall beside the doorway: back into the gallery
+    const beside = insideFloors({ x: 3, z: 4.05 }, floors);
+    expect(beside.x).toBeCloseTo(3);
+    expect(beside.z).toBeCloseTo(3.85);
   });
 });
 

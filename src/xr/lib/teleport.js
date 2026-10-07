@@ -29,3 +29,26 @@ export function originForSpot(head, spot) {
     z: spot.z - (-sin * head.x + cos * head.z),
   };
 }
+
+/**
+ * The station (a painting or lectern, `{x, z, yaw, view}`) that a visitor
+ * standing at `spot` is in front of and facing: within its viewing distance
+ * plus `reach`, on its front side, and no more than `maxAngle` from looking
+ * straight at it. The nearest such station's index, or -1 if none.
+ */
+export function stationInFront(spot, stations, { maxAngle = Math.PI / 3, reach = 1 } = {}) {
+  let best = -1;
+  let bestDistance = Infinity;
+  stations.forEach(({ view, x, yaw, z }, index) => {
+    const dx = spot.x - x;
+    const dz = spot.z - z;
+    const distance = Math.hypot(dx, dz);
+    const inFront = dx * Math.sin(yaw) + dz * Math.cos(yaw) > 0;
+    const facing = Math.abs(angleBetween(spot.yaw, headingOf(-dx, -dz))) <= maxAngle;
+    if (inFront && facing && distance <= view + reach && distance < bestDistance) {
+      best = index;
+      bestDistance = distance;
+    }
+  });
+  return best;
+}

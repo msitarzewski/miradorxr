@@ -11,19 +11,19 @@ const MAPS = {
 
 /**
  * Loads the oak herringbone parquet, a scanned CC0 material, as standard
- * material maps repeating across a floor of the given size.
+ * material maps that repeat every PARQUET_TILE metres of a floor whose
+ * texture coordinates are in tiles.
  *
  * @param {number} options.anisotropy - from renderer.capabilities.getMaxAnisotropy()
  * @returns {Promise<{map, normalMap, roughnessMap}>} textures for meshStandardMaterial
  */
-export async function loadParquet({ anisotropy = 1, depth, width }) {
+export async function loadParquet({ anisotropy = 1 } = {}) {
   const loader = new TextureLoader();
   const maps = await Promise.all(
     Object.entries(MAPS).map(async ([slot, url]) => {
       const texture = await loader.loadAsync(url);
       texture.wrapS = RepeatWrapping;
       texture.wrapT = RepeatWrapping;
-      texture.repeat.set(width / PARQUET_TILE, depth / PARQUET_TILE);
       texture.anisotropy = anisotropy;
       if (slot === 'map') texture.colorSpace = SRGBColorSpace;
       return [slot, texture];

@@ -168,6 +168,14 @@ describe('getThumbnail', () => {
           }),
         ).toMatchObject({ url: `${url}/full/,120/0/default.jpg` });
       });
+      it('ignores sizes given as -1, as some manifests do for unknown sizes', () => {
+        expect(
+          createImageSubject(
+            { ...iiifService(url, { height: -1, width: -1 }, { profile: 'level2' }), id: 'xyz', type: 'Image' },
+            { maxHeight: 1024, maxWidth: 1024 },
+          ),
+        ).toMatchObject({ url: `${url}/full/!1024,1024/0/default.jpg` });
+      });
       it('prefers a IIIF thumbnail over the image service', () => {
         expect(
           createImageSubject({

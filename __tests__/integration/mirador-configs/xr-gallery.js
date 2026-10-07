@@ -23,6 +23,13 @@ export default {
         provider: 'e-codices - Virtual Manuscript Library of Switzerland',
       },
       { manifestId: 'https://wellcomelibrary.org/iiif/collection/b18031511', provider: 'Wellcome Library' },
+      // Natural light and X-ray of the same painting, as a IIIF Choice: the XR layer lens
+      { manifestId: 'https://iiif.io/api/cookbook/recipe/0033-choice/manifest.json', provider: 'IIIF Cookbook' },
+      // A paged manuscript with annotations on most of its pages
+      {
+        manifestId: 'https://iiif.bodleian.ox.ac.uk/iiif/manifest/748a9d50-5a3a-440e-ab9d-567dd68b6abb.json',
+        provider: 'Bodleian Libraries',
+      },
     ],
     id: 'mirador',
     windows: [{ manifestId: NGA_HIGHLIGHTS }],

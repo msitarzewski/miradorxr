@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useXR } from '@react-three/xr';
 import { Quaternion, Shape, Vector3 } from 'three';
-import { floorHit, handHeading, insideRoom } from '../lib/floorTarget';
+import { floorHit, handHeading, insideFloors } from '../lib/floorTarget';
 
 // Looking more than about 20 degrees below level shows where your head is aimed
 const LOOKING_DOWN = -0.35;
@@ -38,10 +38,9 @@ arrowShape.closePath();
  * pinching fingers. Its targetRaySpace isn't used for steering: that ray
  * pivots between the eyes, so hand movement only swings its angle.
  */
-export function FloorTeleport({ depth, headInWorld, onTeleport, width }) {
+export function FloorTeleport({ floors, headInWorld, onTeleport }) {
   const gl = useThree((state) => state.gl);
   const session = useXR((state) => state.session);
-  const room = { depth, width };
   const ring = useRef();
   const target = useRef();
   const targetMaterial = useRef();
@@ -88,7 +87,7 @@ export function FloorTeleport({ depth, headInWorld, onTeleport, width }) {
     const hit = !current && headForward.y < LOOKING_DOWN && floorHit(headPosition, headForward);
     ring.current.visible = Boolean(hit);
     if (hit) {
-      const { x, z } = insideRoom(hit, room);
+      const { x, z } = insideFloors(hit, floors);
       ring.current.position.set(x, 0.004, z);
     }
 
@@ -110,7 +109,7 @@ export function FloorTeleport({ depth, headInWorld, onTeleport, width }) {
   /** */
   const handlePointerDown = (event) => {
     event.stopPropagation();
-    const spot = insideRoom(event.point, room);
+    const spot = insideFloors(event.point, floors);
     const { yaw } = headInWorld();
     press.current = { cancelled: false, source: lastSelect.current, spot, start: null, yaw };
 
@@ -122,10 +121,12 @@ export function FloorTeleport({ depth, headInWorld, onTeleport, width }) {
 
   return (
     <>
-      <mesh position={[0, 0.002, 0]} rotation-x={-Math.PI / 2} onPointerDown={handlePointerDown}>
-        <planeGeometry args={[width, depth]} />
-        <meshBasicMaterial depthWrite={false} opacity={0} transparent />
-      </mesh>
+      {floors.map(({ depth, width, x = 0, z = 0 }) => (
+        <mesh key={`${x},${z}`} position={[x, 0.002, z]} rotation-x={-Math.PI / 2} onPointerDown={handlePointerDown}>
+          <planeGeometry args={[width, depth]} />
+          <meshBasicMaterial depthWrite={false} opacity={0} transparent />
+        </mesh>
+      ))}
       <mesh ref={ring} rotation-x={-Math.PI / 2} visible={false}>
         <ringGeometry args={[0.2, 0.24, 48]} />
         <meshBasicMaterial color="#ffffff" depthWrite={false} opacity={0.7} toneMapped={false} transparent />
@@ -154,8 +155,9 @@ export function FloorTeleport({ depth, headInWorld, onTeleport, width }) {
 }
 
 FloorTeleport.propTypes = {
-  depth: PropTypes.number.isRequired,
+  floors: PropTypes.arrayOf(
+    PropTypes.shape({ depth: PropTypes.number, width: PropTypes.number, x: PropTypes.number, z: PropTypes.number }),
+  ).isRequired,
   headInWorld: PropTypes.func.isRequired,
   onTeleport: PropTypes.func.isRequired,
-  width: PropTypes.number.isRequired,
 };

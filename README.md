@@ -5,8 +5,9 @@
 
 This fork adds an immersive WebXR viewer to Mirador. Open a IIIF manifest in
 Mirador, put on a headset, and walk it as a gallery: every image hangs on the
-walls of a skylit room, streamed at the institution's full archival
-resolution.
+walls of a skylit room, and the books in Mirador's catalogue lie open on
+lecterns in a reading room next door, all streamed at the institution's full
+archival resolution.
 
 **Try it:** [msitarzewski.github.io/miradorxr](https://msitarzewski.github.io/miradorxr/).
 Open it in Safari on Apple Vision Pro, then choose **Enter XR gallery** (the
@@ -34,7 +35,42 @@ cube in the left-hand panel) or **View in XR** in a window's top bar.
   The two toggles are independent; with both off you see the image exactly as
   published.
 - **Leave** with the Digital Crown. Mirador reopens on the work you were at,
-  zoomed to the detail you were looking at.
+  zoomed to the detail you were looking at. A book from the reading room
+  opens in its own window, in book view at the pages you were reading.
+
+### In the reading room
+
+- **Walk through the doorway** in the gallery's back wall: pinch it, or
+  teleport through it. Each book in Mirador's catalogue lies open on a
+  lectern; a collection is shown by its first volume.
+- **Read.** Pinch a lectern to walk up to it. Pinch the right-hand page to
+  read on and the page turns over; pinch the left-hand page to go back. A
+  book that reads right to left turns the other way. **‹ Page** and
+  **Page ›** do the same.
+- **Paged books open as two-page spreads,** starting with the cover on its
+  own; other manifests show one image at a time. The label beside each book
+  names it, the pages it's open at, and where it's from.
+
+### Tools
+
+Under the buttons, a second row offers what each work has:
+
+- **Light.** While Relief or Gloss is on, a small lamp hovers by the work.
+  Pinch it and drag to swing the raking light round, the way a conservator
+  rakes a lamp across a canvas.
+- **Notes: On/Off** pins the work's IIIF annotations to it. Pinch a pin to
+  read its note on a card, with its region lit. The Bodleian's MS. Arab.
+  c. 90 carries English translations of its Arabic, passage by passage.
+- **Lens: Off / X-Ray** (or whatever the work's other layers are called)
+  shows another layer from a IIIF Choice through a round lens. Pinch and
+  drag the painting to move the lens; only the tiles under it are fetched.
+- **Compare: On/Off** picks a painting to compare. Pick a second and both
+  fly off their walls to float side by side in front of you; **Done
+  comparing** sends them back.
+- **Search the books,** a button low on your right, opens a keyboard. Type
+  and search, and every book with a IIIF Content Search service is searched
+  through Mirador. Pinch a result to walk to its book, opened at the page,
+  with the match lit.
 
 ### Detail and fidelity
 
@@ -76,8 +112,9 @@ cube in the left-hand panel) or **View in XR** in a window's top bar.
   or the [IWER](https://github.com/meta-quest/immersive-web-emulation-runtime)
   emulator for development.
 - **Image servers must send CORS headers,** because WebGL can't draw
-  cross-origin images otherwise. The National Gallery of Art, the Bodleian
-  and Gallica all work.
+  cross-origin images otherwise. The National Gallery of Art, the Bodleian,
+  Gallica, e-codices, the Wellcome Collection and the IIIF Cookbook all
+  work. A lectern whose images won't load says so on its label.
 
 ### How it's built
 

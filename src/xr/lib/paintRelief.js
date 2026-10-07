@@ -35,10 +35,15 @@ export function createPaintUniforms() {
  * differently in each, as the shine on real varnish does, and moves as you
  * move.
  *
+ * With a `lens`, only the part of the surface within the lens's circle is
+ * drawn: how a second layer (an X-ray, say) shows through a lens over the
+ * first.
+ *
  * @param {number} texelSize - metres one texel of this mesh's map covers
  * @param {object} uniforms - from createPaintUniforms
+ * @param {object} lens - `{ centre, radius }` uniforms: the lens's world position and radius in metres
  */
-export function applyPaintRelief(material, { texelSize, uniforms }) {
+export function applyPaintRelief(material, { lens = undefined, texelSize, uniforms }) {
   /* eslint-disable no-param-reassign */
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, {
@@ -49,12 +54,16 @@ export function applyPaintRelief(material, { texelSize, uniforms }) {
       paintLight: uniforms.light,
       paintShininess: uniforms.shininess,
       paintTexelSize: { value: texelSize },
+      ...(lens && { paintLensCentre: lens.centre, paintLensRadius: lens.radius }),
     });
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
         `#include <common>
-varying vec3 vPaintToEye;`,
+varying vec3 vPaintToEye;
+#ifdef PAINT_LENS
+varying vec3 vPaintWorld;
+#endif`,
       )
       .replace(
         '#include <project_vertex>',
@@ -63,7 +72,10 @@ varying vec3 vPaintToEye;`,
 vec3 paintRight = normalize(mat3(modelMatrix)[0]);
 vec3 paintUp = normalize(mat3(modelMatrix)[1]);
 vec3 paintToEye = cameraPosition - (modelMatrix * vec4(transformed, 1.0)).xyz;
-vPaintToEye = vec3(dot(paintToEye, paintRight), dot(paintToEye, paintUp), dot(paintToEye, cross(paintRight, paintUp)));`,
+vPaintToEye = vec3(dot(paintToEye, paintRight), dot(paintToEye, paintUp), dot(paintToEye, cross(paintRight, paintUp)));
+#ifdef PAINT_LENS
+vPaintWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
+#endif`,
       );
     shader.fragmentShader = shader.fragmentShader
       // After map_pars_fragment, which declares the map the helper reads
@@ -78,6 +90,11 @@ uniform vec3 paintLight;
 uniform float paintShininess;
 uniform float paintTexelSize;
 varying vec3 vPaintToEye;
+#ifdef PAINT_LENS
+uniform vec3 paintLensCentre;
+uniform float paintLensRadius;
+varying vec3 vPaintWorld;
+#endif
 
 #ifdef USE_MAP
 float paintLightness(vec2 uv) {
@@ -88,6 +105,9 @@ float paintLightness(vec2 uv) {
       .replace(
         '#include <map_fragment>',
         `#include <map_fragment>
+#ifdef PAINT_LENS
+if (distance(vPaintWorld, paintLensCentre) > paintLensRadius) discard;
+#endif
 #ifdef USE_MAP
 if (paintAmount > 0.001 || paintGlossAmount > 0.001) {
   vec2 texel = 1.0 / vec2(textureSize(map, 0));
@@ -103,7 +123,8 @@ if (paintAmount > 0.001 || paintGlossAmount > 0.001) {
 #endif`,
       );
   };
-  material.customProgramCacheKey = () => 'mirador-xr-paint-relief';
+  if (lens) material.defines = { ...material.defines, PAINT_LENS: '' };
+  material.customProgramCacheKey = () => (lens ? 'mirador-xr-paint-relief-lens' : 'mirador-xr-paint-relief');
   material.needsUpdate = true;
   /* eslint-enable no-param-reassign */
 }

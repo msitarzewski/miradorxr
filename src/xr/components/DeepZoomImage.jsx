@@ -27,7 +27,10 @@ const noRaycast = () => {};
  * per-eye resolution and draws each wanted tile, or its nearest loaded
  * ancestor until the tile arrives. Tiles come from the scene's shared cache,
  * wanted under this image's id. Every tile shares the gallery's paint
- * relief lighting, read at its own resolution. `progressRef.current` is
+ * relief lighting, read at its own resolution; with `lens`, a second layer
+ * shows only through the lens's circle, and only tiles within `region`
+ * (a ref to `{ x, y, radius }` in this image's space, metres) are fetched.
+ * `progressRef.current` is
  * kept at `{ ready, total }`: how many of the tiles for the current view
  * have arrived, of those that haven't failed.
  */
@@ -36,8 +39,10 @@ export function DeepZoomImage({
   boxWidth,
   cache,
   infoJson,
+  lens = undefined,
   paint,
   progressRef = undefined,
+  region = undefined,
   statsRef = undefined,
   ...groupProps
 }) {
@@ -83,8 +88,23 @@ export function DeepZoomImage({
     // Display pixels per metre at 1 m, from the eye's projection and viewport
     const pixelsPerMetre = (eye.viewport.z / 2) * eye.projectionMatrix.elements[0];
 
+    /** Whether a tile overlaps the region of interest, if there is one */
+    const inRegion = (rect) => {
+      const focus = region?.current;
+      if (!focus) return true;
+      const left = (rect.x - 0.5) * width;
+      const top = halfHeight - rect.y * width;
+      return (
+        left < focus.x + focus.radius &&
+        left + rect.w * width > focus.x - focus.radius &&
+        top > focus.y - focus.radius &&
+        top - rect.h * width < focus.y + focus.radius
+      );
+    };
+
     /** */
     const isVisible = (rect) => {
+      if (!inRegion(rect)) return false;
       tileBox.makeEmpty();
       [
         [rect.x, rect.y],
@@ -154,7 +174,7 @@ export function DeepZoomImage({
       const rect = grid.bounds(level, x, y);
       const material = new MeshBasicMaterial({ map: cache.texture(key), toneMapped: false });
       // Metres per texel of this tile, so brushwork reads at its true scale
-      applyPaintRelief(material, { texelSize: (rect.w * width) / grid.pixelSize(level, x, y).w, uniforms: paint });
+      applyPaintRelief(material, { lens, texelSize: (rect.w * width) / grid.pixelSize(level, x, y).w, uniforms: paint });
       const mesh = new Mesh(flippedPlane, material);
       mesh.position.set(
         (rect.x + rect.w / 2 - 0.5) * width,
@@ -176,7 +196,9 @@ DeepZoomImage.propTypes = {
   boxWidth: PropTypes.number.isRequired,
   cache: PropTypes.instanceOf(TileCache).isRequired,
   infoJson: PropTypes.object.isRequired,
+  lens: PropTypes.objectOf(PropTypes.shape({ value: PropTypes.any })),
   paint: PropTypes.objectOf(PropTypes.shape({ value: PropTypes.any })).isRequired,
   progressRef: PropTypes.shape({ current: PropTypes.object }),
+  region: PropTypes.shape({ current: PropTypes.object }),
   statsRef: PropTypes.shape({ current: PropTypes.object }),
 };

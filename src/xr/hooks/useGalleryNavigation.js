@@ -2,11 +2,14 @@ import { useCallback, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Quaternion, Vector3 } from 'three';
 import { viewingSpot } from '../lib/galleryLayout';
-import { originForSpot } from '../lib/teleport';
+import { originForSpot, stationInFront } from '../lib/teleport';
 
-// Metres from the painting: a comfortable look, and a close look for detail
+// Metres from a painting: a comfortable look, and a close look for detail
 export const VIEW_DISTANCE = 1.5;
 export const CLOSE_DISTANCE = 0.55;
+// Metres from the middle of a lectern's book to where you stand to read it
+export const READING_DISTANCE = 0.75;
+export const CLOSE_READING_DISTANCE = 0.45;
 // Paintings hang at the viewer's eye height, seated or standing, within reason
 const MIN_EYE_HEIGHT = 1;
 const MAX_EYE_HEIGHT = 1.75;
@@ -16,13 +19,19 @@ const forward = new Vector3();
 
 /**
  * Moves the viewer around the gallery. Every move is a teleport through the
- * fade curtain: to a painting (pinch it, or the arrows), to a spot on the
- * floor, or a snap turn in place, so seated viewers never turn their chair.
+ * fade curtain: to a station (a painting or a lectern: pinch it, or the
+ * arrows between paintings), to a spot on the floor, or a snap turn in
+ * place, so seated viewers never turn their chair.
+ *
+ * Stations are `{x, z, yaw, view, close, kind}`: where the work is, which
+ * way it faces, and the distances to stand at to look at it and to look
+ * closely. The station you're at is the active one; landing on the floor in
+ * front of a station makes it active too.
  *
  * The head's pose within the XR origin comes from the WebXR viewer pose in
  * three's reference space, which is the origin's own space.
  */
-export function useGalleryNavigation({ curtain, origin, placements, startIndex }) {
+export function useGalleryNavigation({ curtain, origin, startIndex, stations }) {
   const gl = useThree((state) => state.gl);
   const head = useRef(null);
   const moving = useRef(false);
@@ -51,7 +60,7 @@ export function useGalleryNavigation({ curtain, origin, placements, startIndex }
     // Once tracking, hang the paintings at eye height and start at the window's painting
     if (eyeHeight === null && position.y > 0.3) {
       setEyeHeight(Math.min(Math.max(position.y, MIN_EYE_HEIGHT), MAX_EYE_HEIGHT));
-      placeAt(viewingSpot(placements[startIndex], VIEW_DISTANCE));
+      placeAt(viewingSpot(stations[startIndex], stations[startIndex].view));
     }
   });
 
@@ -78,33 +87,50 @@ export function useGalleryNavigation({ curtain, origin, placements, startIndex }
     [curtain, placeAt],
   );
 
-  /** Goes to a painting at a viewing distance, making it the one you're at */
+  /** Goes to a station at one of its distances, making it the one you're at */
   const travel = useCallback(
     (index, distance) =>
-      moveTo(viewingSpot(placements[index], distance), () => {
+      moveTo(viewingSpot(stations[index], distance), () => {
         setActiveIndex(index);
-        setClose(distance === CLOSE_DISTANCE);
+        setClose(distance === stations[index].close);
       }),
-    [moveTo, placements],
+    [moveTo, stations],
   );
 
-  /** Pinching a painting: go to it, or step closer to / back from the one you're at */
+  /** Pinching a station: go to it, or step closer to / back from the one you're at */
   const select = useCallback(
     (index) => {
-      if (index !== activeIndex) return travel(index, VIEW_DISTANCE);
-      return travel(index, close ? VIEW_DISTANCE : CLOSE_DISTANCE);
+      const { close: closeDistance, view } = stations[index];
+      if (index !== activeIndex) return travel(index, view);
+      return travel(index, close ? view : closeDistance);
     },
-    [activeIndex, close, travel],
+    [activeIndex, close, stations, travel],
   );
+
+  /** Goes straight to a station, at its viewing distance */
+  const visit = useCallback((index) => travel(index, stations[index].view), [stations, travel]);
 
   /** The arrows: the next or previous painting along the walls, wrapping round */
   const step = useCallback(
-    (offset) => travel((activeIndex + offset + placements.length) % placements.length, VIEW_DISTANCE),
-    [activeIndex, placements.length, travel],
+    (offset) => {
+      const paintings = stations.flatMap(({ kind }, index) => (kind === 'painting' ? [index] : []));
+      const from = Math.max(0, paintings.indexOf(activeIndex));
+      const next = paintings[(from + offset + paintings.length) % paintings.length];
+      return next === undefined ? undefined : travel(next, stations[next].view);
+    },
+    [activeIndex, stations, travel],
   );
 
-  /** A spot on the floor: stand there facing the chosen heading */
-  const teleportTo = useCallback((x, z, yaw) => moveTo({ x, yaw, z }, () => setClose(false)), [moveTo]);
+  /** A spot on the floor: stand there facing the chosen heading, at whatever station is in front */
+  const teleportTo = useCallback(
+    (x, z, yaw) =>
+      moveTo({ x, yaw, z }, () => {
+        const facing = stationInFront({ x, yaw, z }, stations);
+        if (facing >= 0) setActiveIndex(facing);
+        setClose(false);
+      }),
+    [moveTo, stations],
+  );
 
   /** A snap turn in place, positive to the left */
   const turn = useCallback(
@@ -116,5 +142,5 @@ export function useGalleryNavigation({ curtain, origin, placements, startIndex }
     [headInWorld, moveTo],
   );
 
-  return { activeIndex, eyeHeight, headInWorld, select, step, teleportTo, turn };
+  return { activeIndex, eyeHeight, headInWorld, select, step, teleportTo, turn, visit };
 }

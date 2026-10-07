@@ -14,10 +14,10 @@ const FILL_OPACITY = 0.7;
 /**
  * A thin bar under a painting while sharper detail streams in. It fades in
  * once loading has gone on for a moment, fills as tiles arrive, and fades
- * away when the view is complete. Reads `progressRef.current`, a
- * `{ ready, total }` count of tiles, every frame.
+ * away when the view is complete. Reads each of `progressRefs` (one per
+ * image it covers) every frame: a `{ ready, total }` count of tiles.
  */
-export function LoadingCue({ progressRef, width, ...groupProps }) {
+export function LoadingCue({ progressRefs, width, ...groupProps }) {
   const group = useRef();
   const fill = useRef();
   const trackMaterial = useRef();
@@ -26,7 +26,12 @@ export function LoadingCue({ progressRef, width, ...groupProps }) {
 
   useFrame((_state, delta) => {
     if (!group.current) return;
-    const { ready = 0, total = 0 } = progressRef.current ?? {};
+    let ready = 0;
+    let total = 0;
+    progressRefs.forEach(({ current }) => {
+      ready += current?.ready ?? 0;
+      total += current?.total ?? 0;
+    });
     const state = cue.current;
     const loading = ready < total;
 
@@ -58,6 +63,6 @@ export function LoadingCue({ progressRef, width, ...groupProps }) {
 }
 
 LoadingCue.propTypes = {
-  progressRef: PropTypes.shape({ current: PropTypes.object }).isRequired,
+  progressRefs: PropTypes.arrayOf(PropTypes.shape({ current: PropTypes.object })).isRequired,
   width: PropTypes.number.isRequired,
 };

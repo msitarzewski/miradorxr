@@ -1,4 +1,4 @@
-import { angleBetween, headingOf, originForSpot } from '../../../src/xr/lib/teleport';
+import { angleBetween, headingOf, originForSpot, stationInFront } from '../../../src/xr/lib/teleport';
 
 /** Where the head ends up in the world once the origin transform is applied */
 function headInWorld(origin, head) {
@@ -36,5 +36,24 @@ describe('headings', () => {
   it('measures the short way round', () => {
     expect(angleBetween(3, -3)).toBeCloseTo(2 * Math.PI - 6);
     expect(angleBetween(0.2, 0.5)).toBeCloseTo(0.3);
+  });
+});
+
+describe('stationInFront', () => {
+  // A painting on the front wall facing +z, and a lectern behind you facing -z
+  const stations = [
+    { view: 1.5, x: 0, yaw: 0, z: -4 },
+    { view: 0.75, x: 0, yaw: Math.PI, z: 4 },
+  ];
+
+  it('finds the station you are standing in front of and facing', () => {
+    expect(stationInFront({ x: 0.3, yaw: 0, z: -2.4 }, stations)).toEqual(0);
+    expect(stationInFront({ x: 0, yaw: Math.PI, z: 3.2 }, stations)).toEqual(1);
+  });
+
+  it('finds none when you are too far away, behind it, or looking elsewhere', () => {
+    expect(stationInFront({ x: 0, yaw: 0, z: 0 }, stations)).toEqual(-1);
+    expect(stationInFront({ x: 0, yaw: Math.PI, z: -4.5 }, stations)).toEqual(-1);
+    expect(stationInFront({ x: 0, yaw: Math.PI / 2, z: -2.4 }, stations)).toEqual(-1);
   });
 });

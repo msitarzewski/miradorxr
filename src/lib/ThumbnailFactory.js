@@ -140,12 +140,14 @@ class ThumbnailFactory {
     // requires an explicit `^` prefix in v3), so we must not ask for a size larger than
     // the image itself; the (possibly larger) thumbnail dimensions below are used to
     // display the image and let the browser scale it up client-side.
-    const imageWidth = resource.getWidth() || service.getProperty('width');
-    const imageHeight = resource.getHeight() || service.getProperty('height');
+    // Some manifests give unknown sizes as -1; only a positive size is a size
+    const positive = (value) => (value > 0 ? value : undefined);
+    const imageWidth = positive(resource.getWidth()) || positive(service.getProperty('width'));
+    const imageHeight = positive(resource.getHeight()) || positive(service.getProperty('height'));
     const withinImageWidth = (value) => (imageWidth ? Math.min(value, imageWidth) : value);
     const withinImageHeight = (value) => (imageHeight ? Math.min(value, imageHeight) : value);
 
-    const aspectRatio = resource.getWidth() && resource.getHeight() && resource.getWidth() / resource.getHeight();
+    const aspectRatio = imageWidth && imageHeight && imageWidth / imageHeight;
     const target = requestedMaxWidth && requestedMaxHeight ? requestedMaxWidth * requestedMaxHeight : maxHeight * maxWidth;
     const closestSize = ThumbnailFactory.selectBestImageSize(service, target);
 

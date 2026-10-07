@@ -12,11 +12,28 @@ export function floorHit(origin, direction, maxDistance = 20) {
   return { x: origin.x + direction.x * distance, z: origin.z + direction.z * distance };
 }
 
-/** Keeps a landing spot inside the room's walls */
-export function insideRoom({ x, z }, { depth, width }) {
-  const halfWidth = width / 2 - WALL_MARGIN;
-  const halfDepth = depth / 2 - WALL_MARGIN;
-  return { x: Math.min(halfWidth, Math.max(-halfWidth, x)), z: Math.min(halfDepth, Math.max(-halfDepth, z)) };
+const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+
+/**
+ * Keeps a landing spot on the floor: where it is, if that's on one of the
+ * floor areas (rooms, or a doorway between them), clear of their walls;
+ * otherwise the nearest such spot.
+ *
+ * @param {Array<{x, z, width, depth, margin}>} floors - areas centred on (x, z);
+ *   `margin` ({x, z} or one number, default 15 cm) is kept clear of their edges
+ */
+export function insideFloors(spot, floors) {
+  let nearest = null;
+  floors.forEach(({ depth, margin = WALL_MARGIN, width, x = 0, z = 0 }) => {
+    const { x: marginX, z: marginZ } = typeof margin === 'number' ? { x: margin, z: margin } : margin;
+    const candidate = {
+      x: clamp(spot.x, x - width / 2 + marginX, x + width / 2 - marginX),
+      z: clamp(spot.z, z - depth / 2 + marginZ, z + depth / 2 - marginZ),
+    };
+    const distance = Math.hypot(candidate.x - spot.x, candidate.z - spot.z);
+    if (!nearest || distance < nearest.distance) nearest = { distance, ...candidate };
+  });
+  return { x: nearest.x, z: nearest.z };
 }
 
 /**
