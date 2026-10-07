@@ -144,9 +144,11 @@ export function FloorTeleport({ floors, headInWorld, onTeleport }) {
           />
         </mesh>
         <group ref={arrow}>
-          <mesh position={[0, 0.002, 0]} rotation-x={-Math.PI / 2}>
+          {/* Drawn with the see-through disc, after it: as an opaque mesh that doesn't
+              write depth, it could be drawn before the floor and lost under it */}
+          <mesh position={[0, 0.002, 0]} renderOrder={1} rotation-x={-Math.PI / 2}>
             <shapeGeometry args={[arrowShape]} />
-            <meshBasicMaterial color="#ffffff" depthWrite={false} toneMapped={false} />
+            <meshBasicMaterial color="#ffffff" depthWrite={false} toneMapped={false} transparent />
           </mesh>
         </group>
       </group>

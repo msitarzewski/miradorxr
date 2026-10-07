@@ -68,7 +68,7 @@ const MIN_PARAGRAPH = 4;
 
 /**
  * Note-card lines for an annotation's text, which may be HTML: one body line
- * per paragraph, dropping stray fragments (some annotations carry bits of
+ * per paragraph or line break, dropping stray fragments (some annotations carry bits of
  * markup like a lone "ltr"), and cut short past `maxCharacters`. DOMParser
  * builds an inert document, so nothing in the value runs or loads.
  *
@@ -77,10 +77,13 @@ const MIN_PARAGRAPH = 4;
 export function noteLines(html, maxCharacters = 700) {
   const { body } = new DOMParser().parseFromString(String(html ?? ''), 'text/html');
   body.querySelectorAll('script, style, template').forEach((element) => element.remove());
+  // A line break within a paragraph starts a new line of the note
+  body.querySelectorAll('br').forEach((element) => element.replaceWith('\n'));
   const blocks = [...body.querySelectorAll('p, li, h1, h2, h3, h4, div')].filter(
     (element) => !element.querySelector('p, li, h1, h2, h3, h4, div'),
   );
   const paragraphs = (blocks.length ? blocks.map((element) => element.textContent) : [body.textContent])
+    .flatMap((text) => text.split('\n'))
     .map((text) => text.replace(/\s+/g, ' ').trim())
     .filter((text) => text.length >= MIN_PARAGRAPH);
 

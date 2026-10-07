@@ -72,9 +72,10 @@ describe('bookLabelLines', () => {
 });
 
 describe('noteLines', () => {
-  it('gives each paragraph of an annotation a line of its own', () => {
+  it('gives each paragraph and line break of an annotation a line of its own', () => {
     expect(noteLines('<p><strong>English</strong><br/>In the name of God.</p><p>Second paragraph</p>')).toEqual([
-      { style: 'body', text: 'EnglishIn the name of God.' },
+      { style: 'body', text: 'English' },
+      { style: 'body', text: 'In the name of God.' },
       { style: 'body', text: 'Second paragraph' },
     ]);
   });
@@ -82,6 +83,10 @@ describe('noteLines', () => {
   it('drops stray fragments of markup, as in some Bodleian annotations', () => {
     const chars = '<p dir="ltr>ltr</p> <p dir="rtl>rtl</p> <p dir="ltr"><strong>English</strong> You have asked me</p>';
     expect(noteLines(chars).map(({ text }) => text)).toEqual(['English You have asked me']);
+    expect(noteLines('<p><strong>English</strong><br/>Amongst the property</p>').map(({ text }) => text)).toEqual([
+      'English',
+      'Amongst the property',
+    ]);
   });
 
   it('takes plain text as one paragraph and cuts long notes short', () => {

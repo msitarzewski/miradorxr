@@ -1,5 +1,6 @@
-# Builds the demo site (including demo/xr-gallery.html) and publishes it to
-# GitHub Pages. WebXR needs a secure context, which Pages' HTTPS provides.
+# Builds the demo site (including the demo/xr.html landing page and the
+# demo/xr-gallery.html viewer) and publishes it to GitHub Pages. WebXR needs
+# a secure context, which Pages' HTTPS provides.
 
 name: Deploy demo site to GitHub Pages
 
@@ -33,11 +34,11 @@ jobs:
       - run: npx vite build --config vite.config.js
         env:
           GITHUB_PAGES_BASE: ${{ steps.pages.outputs.base_path }}/
-      - name: Point the site root at the XR gallery demo
+      - name: Point the site root at the XR landing page
         run: >
           printf '<!DOCTYPE html><meta charset="utf-8"><title>Mirador XR</title>
-          <meta http-equiv="refresh" content="0; url=demo/xr-gallery.html">
-          <a href="demo/xr-gallery.html">Mirador XR gallery</a>\n' > dist/index.html
+          <meta http-equiv="refresh" content="0; url=demo/xr.html">
+          <a href="demo/xr.html">Mirador XR</a>\n' > dist/index.html
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

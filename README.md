@@ -9,9 +9,11 @@ walls of a skylit room, and the books in Mirador's catalogue lie open on
 lecterns in a reading room next door, all streamed at the institution's full
 archival resolution.
 
-**Try it:** [msitarzewski.github.io/miradorxr](https://msitarzewski.github.io/miradorxr/).
-Open it in Safari on Apple Vision Pro, then choose **Enter XR gallery** (the
-cube in the left-hand panel) or **View in XR** in a window's top bar.
+**Try it:** [msitarzewski.github.io/miradorxr](https://msitarzewski.github.io/miradorxr/)
+walks through the whole visit, with pictures. Open it in Safari on Apple
+Vision Pro and press **Enter the gallery** to go straight in. Inside Mirador
+itself, choose **Enter XR gallery** (the cube in the left-hand panel) or
+**View in XR** in a window's top bar.
 
 ### In the gallery
 
@@ -133,7 +135,12 @@ Under the buttons, a second row offers what each work has:
 
 ### Developing the XR viewer
 
-Run `npm start` and open [http://127.0.0.1:4444/xr-gallery.html](http://127.0.0.1:4444/xr-gallery.html).
+Run `npm start` and open [http://127.0.0.1:4444/xr.html](http://127.0.0.1:4444/xr.html)
+for the landing page, or [http://127.0.0.1:4444/xr-gallery.html](http://127.0.0.1:4444/xr-gallery.html)
+for the viewer on its own. A page hosting Mirador can enter the gallery from
+its own button with `enterXRGallery(viewer.store)` from
+[`src/xr/enterGallery.js`](src/xr/enterGallery.js), called straight from the
+click.
 WebXR needs a secure context, so to try changes in a headset, serve the dev
 server to it over HTTPS (for example with an HTTPS tunnel). The gallery's
 catalogue of manifests is in

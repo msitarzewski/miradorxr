@@ -4,14 +4,17 @@ import { Canvas } from '@react-three/fiber';
 import { XR } from '@react-three/xr';
 import { NeutralToneMapping } from 'three';
 import ns from '../../config/css-ns';
+import { markStageReady } from '../enterGallery';
 import { getXRWindowId } from '../state';
 import { xrStore } from '../xrStore';
 import { GalleryScene } from './GalleryScene';
 
 // BackgroundPluginArea is display:none, and R3F only creates its renderer for
 // a canvas with a non-zero size. <XR> needs that renderer before a session can
-// start, so the stage is portaled to a 1px invisible box. During a session the
-// headset renders the scene; outside one, frameloop="demand" keeps it idle.
+// start, so the stage is portaled to a 1px invisible box, and it reports when
+// that renderer exists, for pages with their own Enter XR button. During a
+// session the headset renders the scene; outside one, frameloop="demand"
+// keeps it idle.
 const stageStyle = {
   height: 1,
   left: 0,
@@ -34,7 +37,7 @@ export function XRStage() {
 
   return createPortal(
     <div className={ns('xr-stage')} style={stageStyle} aria-hidden="true">
-      <Canvas frameloop="demand" gl={rendererOptions}>
+      <Canvas frameloop="demand" gl={rendererOptions} onCreated={markStageReady}>
         <XR store={xrStore}>{windowId && <GalleryScene windowId={windowId} />}</XR>
       </Canvas>
     </div>,

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f1ea">
+    <meta name="description" content="A WebXR gallery for IIIF, built on Mirador: paintings at full archival resolution in a skylit gallery, manuscripts open on lecterns, and tools for looking closer.">
+    <title>Mirador XR</title>
+    <style>
+      :root {
+        --paper: #f4f1ea;
+        --paper-deep: #ebe6dc;
+        --card: #fbfaf6;
+        --ink: #1d1b18;
+        --ink-soft: #5b564f;
+        --rule: #d9d2c5;
+        --walnut: #3b2f22;
+        --accent: #3ec46d;
+        --button: #1d1b18;
+        --button-ink: #f6f3ec;
+        --shadow: 0 1px 2px rgb(29 27 24 / 8%), 0 12px 32px rgb(29 27 24 / 10%);
+        --serif: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+        --sans: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+        color-scheme: light dark;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --paper: #171614;
+          --paper-deep: #201e1b;
+          --card: #1f1d1a;
+          --ink: #f1ede4;
+          --ink-soft: #b3ab9e;
+          --rule: #36322c;
+          --button: #f1ede4;
+          --button-ink: #171614;
+          --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 32px rgb(0 0 0 / 35%);
+        }
+      }
+
+      :root[data-theme="dark"] {
+        --paper: #171614;
+        --paper-deep: #201e1b;
+        --card: #1f1d1a;
+        --ink: #f1ede4;
+        --ink-soft: #b3ab9e;
+        --rule: #36322c;
+        --button: #f1ede4;
+        --button-ink: #171614;
+        --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 32px rgb(0 0 0 / 35%);
+      }
+
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font: 17px/1.6 var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      img { display: block; max-width: 100%; height: auto; }
+
+      a { color: inherit; text-decoration-color: var(--rule); text-underline-offset: 0.18em; }
+      a:hover { text-decoration-color: currentColor; }
+
+      .wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
+
+      h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.12; letter-spacing: -0.01em; }
+      h2 { font-size: clamp(30px, 4vw, 44px); margin: 0 0 16px; }
+      h3 { font-size: 24px; margin: 0 0 8px; }
+
+      .kicker {
+        font: 600 13px/1 var(--sans);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+
+      /* Hero */
+      .hero { padding: 40px 0 56px; }
+      .hero-grid { display: grid; gap: 48px; grid-template-columns: 1fr; }
+      .hero h1 { font-size: clamp(44px, 7.4vw, 96px); margin: 14px 0 20px; max-width: 12em; }
+      .lede { font-size: clamp(18px, 2vw, 21px); color: var(--ink-soft); max-width: 34em; margin: 0 0 28px; }
+      .hero figure { margin: 0; }
+      .hero img { border-radius: 10px; box-shadow: var(--shadow); }
+
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+      .enter {
+        display: inline-flex;
+        gap: 10px;
+        align-items: center;
+        padding: 16px 28px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--button);
+        color: var(--button-ink);
+        font: 600 18px/1 var(--sans);
+        cursor: pointer;
+        transition: transform 120ms ease, opacity 120ms ease;
+      }
+      .enter:hover:not(:disabled) { transform: translateY(-1px); }
+      .enter:disabled { opacity: 0.45; cursor: default; }
+      .enter svg { width: 22px; height: 22px; }
+
+      .secondary {
+        padding: 15px 22px;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        font: 600 16px/1 var(--sans);
+        text-decoration: none;
+      }
+
+      .status { min-height: 1.6em; margin: 14px 0 0; font-size: 15px; color: var(--ink-soft); }
+
+      /* The visit */
+      section { padding: 64px 0; border-top: 1px solid var(--rule); }
+      .intro { max-width: 40em; color: var(--ink-soft); margin: 0 0 40px; }
+
+      .step { display: grid; gap: 28px; align-items: center; grid-template-columns: 1fr; margin: 0 0 64px; }
+      .step:last-child { margin-bottom: 0; }
+      .step figure { margin: 0; }
+      .step img { border-radius: 8px; box-shadow: var(--shadow); }
+      .step figcaption { font-size: 14px; color: var(--ink-soft); margin-top: 10px; }
+      .step .second { margin-top: 20px; }
+      .leave { margin-top: 64px; }
+      .number { font: 600 15px/1 var(--serif); color: var(--ink-soft); margin: 0 0 12px; }
+      .step p { margin: 0 0 12px; }
+      .step ul { margin: 0; padding-left: 1.1em; }
+      .step li { margin: 0 0 8px; }
+
+      .tools { display: grid; gap: 28px; grid-template-columns: 1fr; }
+      .tools .wide { grid-column: 1 / -1; }
+      .tool { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+      .tool img { border-bottom: 1px solid var(--rule); }
+      .tool div { padding: 18px 20px 22px; }
+      .tool p { margin: 0; color: var(--ink-soft); }
+
+      /* Detail and fidelity */
+      .stats { display: grid; gap: 1px; grid-template-columns: 1fr 1fr; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; margin: 0 0 28px; }
+      .stat { background: var(--card); padding: 22px 20px; }
+      .stat strong { display: block; font: 600 clamp(26px, 3.4vw, 36px)/1.1 var(--serif); margin: 0 0 6px; }
+      .stat span { font-size: 15px; color: var(--ink-soft); }
+      .honest { max-width: 44em; color: var(--ink-soft); }
+
+      /* Controls */
+      .controls { display: grid; gap: 0; grid-template-columns: 1fr; border-top: 1px solid var(--rule); margin: 0; }
+      .controls div { display: grid; grid-template-columns: minmax(9em, 1fr) 2fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+      .controls dt { font-weight: 600; }
+      .controls dd { margin: 0; color: var(--ink-soft); }
+
+      .columns { display: grid; gap: 32px; grid-template-columns: 1fr; }
+      .columns p { margin: 0 0 12px; }
+
+      /* The 2D viewer */
+      .viewer-frame { position: relative; height: min(82vh, 820px); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: var(--paper-deep); }
+      #mirador { position: absolute; inset: 0; }
+
+      footer { padding: 40px 0 56px; border-top: 1px solid var(--rule); color: var(--ink-soft); font-size: 15px; }
+
+      @media (min-width: 860px) {
+        .hero { padding: 64px 0 80px; }
+        .step { grid-template-columns: 1fr 1.25fr; gap: 48px; }
+        .step:nth-child(even) figure { order: -1; }
+        .tools { grid-template-columns: repeat(3, 1fr); }
+        .stats { grid-template-columns: repeat(3, 1fr); }
+        .controls { grid-template-columns: 1fr 1fr; column-gap: 48px; }
+        .columns { grid-template-columns: repeat(3, 1fr); }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="kicker">Mirador XR · WebXR for IIIF</p>
+          <h1>Walk into the collection.</h1>
+          <p class="lede">
+            A gallery you can stand in, built on Mirador. Paintings hang at their institution's full archival resolution
+            in a skylit room, manuscripts lie open on lecterns next door, and when you're done you step back into Mirador
+            exactly where you were looking.
+          </p>
+          <div class="actions">
+            <button class="enter" type="button" data-enter-xr disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 3 7v10l9 5 9-5V7l-9-5Zm0 2.3 6.5 3.6L12 11.5 5.5 7.9 12 4.3ZM5 9.6l6 3.3v6.6l-6-3.3V9.6Zm8 9.9v-6.6l6-3.3v6.6l-6 3.3Z"/></svg>
+              <span data-enter-label>Enter the gallery</span>
+            </button>
+            <a class="secondary" href="#viewer">Explore in 2D</a>
+          </div>
+          <p class="status" data-xr-status aria-live="polite">Getting the gallery ready…</p>
+        </div>
+        <figure>
+          <img src="/demo/xr-landing/gallery.jpg" width="1600" height="827" alt="A long gallery wall of framed paintings receding into the distance, van Gogh's Self-Portrait nearest, above a herringbone oak floor.">
+        </figure>
+      </div>
+    </header>
+
+    <main>
+      <section aria-labelledby="visit">
+        <div class="wrap">
+          <p class="kicker">From start to finish</p>
+          <h2 id="visit">The visit</h2>
+          <p class="intro">
+            Everything here comes from open IIIF collections, read through Mirador: the same manifests, images,
+            annotations and search services the 2D viewer uses. Nothing is copied or converted; it streams in as you look.
+          </p>
+
+          <article class="step">
+            <div>
+              <p class="number">1 · Enter</p>
+              <h3>Arrive at the work you were looking at</h3>
+              <p>
+                Press <strong>Enter the gallery</strong> and Safari opens an immersive session. You arrive in front of the
+                painting that was open in Mirador, at your own eye height, seated or standing. Every image in its manifest
+                hangs around the room in order, each with a wall label from the manifest's own data.
+              </p>
+            </div>
+            <figure>
+              <img src="/demo/xr-landing/doorway.jpg" width="1600" height="827" loading="lazy" alt="The far wall of the gallery, hung with paintings either side of a doorway that opens onto a reading room with a lectern.">
+              <figcaption>The gallery: every image in the manifest, hung in order. The doorway leads to the reading room.</figcaption>
+            </figure>
+          </article>
+
+          <article class="step">
+            <div>
+              <p class="number">2 · Walk</p>
+              <h3>Move the way you would in a museum</h3>
+              <ul>
+                <li><strong>Pinch a painting</strong> to walk up to it; pinch again to step in close. <strong>Previous</strong> and <strong>Next</strong> follow the wall.</li>
+                <li><strong>Teleport anywhere:</strong> look down, pinch and hold where you want to stand, move your hand the way you want to face, and let go. Pull your hand back towards you to land turned round; lift it to cancel.</li>
+                <li><strong>Turn</strong> by pinching a bare wall and flicking sideways: 45° at a time, so you never have to swivel your chair.</li>
+              </ul>
+            </div>
+            <figure>
+              <img src="/demo/xr-landing/teleport.jpg" width="1600" height="827" loading="lazy" alt="A green landing target on the oak floor with a white arrow showing which way you'll face, in front of the gallery wall.">
+              <figcaption>Teleporting: the green target is where you'll stand, the arrow which way you'll face.</figcaption>
+            </figure>
+          </article>
+
+          <article class="step">
+            <div>
+              <p class="number">3 · Look closer</p>
+              <h3>Lean in and the detail keeps coming</h3>
+              <p>
+                The painting streams as IIIF tiles chosen for your eyes: as you lean in, finer tiles replace coarser ones,
+                down to the scan's own pixels. A thin bar under the frame shows while sharper detail is on its way.
+              </p>
+              <ul>
+                <li><strong>Relief</strong> lights the brushwork as raised paint under a low, raking light.</li>
+                <li><strong>Gloss</strong> lets the varnish catch the light; the glints shift as you move your head, a little differently in each eye.</li>
+                <li><strong>Light</strong>: while either is on, drag the small lamp to swing the light round the work, the way a conservator rakes a lamp across a canvas.</li>
+              </ul>
+            </div>
+            <figure>
+              <img src="/demo/xr-landing/raking-light.jpg" width="1600" height="827" loading="lazy" alt="A close view of van Gogh's Self-Portrait with its brushstrokes raised in relief, and a small glowing lamp labelled Light beside the frame.">
+              <figcaption>Relief and Gloss on, with the raking light's lamp at the upper left.</figcaption>
+            </figure>
+          </article>
+
+          <article class="step">
+            <div>
+              <p class="number">4 · Read</p>
+              <h3>Through the doorway, the books lie open</h3>
+              <p>
+                Pinch the doorway, or teleport through it, and you're in the reading room. Each book in Mirador's catalogue
+                is open on its own lectern, its label naming the book, the pages and where it's from.
+              </p>
+              <ul>
+                <li><strong>Pinch the right-hand page</strong> to read on and the leaf turns over; the left-hand page goes back. Books that read right to left turn the other way.</li>
+                <li>Paged books open as two-page spreads, starting with the cover alone; other manuscripts show one image at a time.</li>
+              </ul>
+            </div>
+            <figure>
+              <img src="/demo/xr-landing/reading-room.jpg" width="1600" height="827" loading="lazy" alt="A skylit reading room with six white plinths, each holding a book or manuscript open on a sloping walnut board.">
+              <figcaption>The reading room: every book in the catalogue, open on a lectern.</figcaption>
+              <img class="second" src="/demo/xr-landing/page-turn.jpg" width="1600" height="827" loading="lazy" alt="An open Arabic manuscript on a lectern, its right-hand leaf lifting mid-turn over the spine.">
+              <figcaption>A leaf of the Bodleian's MS. Arab. c. 90 mid-turn: it reads right to left.</figcaption>
+            </figure>
+          </article>
+
+          <article class="step">
+            <div>
+              <p class="number">5 · Explore</p>
+              <h3>Tools for what each work has</h3>
+              <p>
+                Under each work, a second row of buttons offers what it supports: notes where it's annotated, a lens where
+                there are other layers, comparison for paintings. From anywhere, <strong>Search the books</strong> opens a
+                keyboard.
+              </p>
+            </div>
+            <figure>
+              <img src="/demo/xr-landing/notes.jpg" width="1600" height="827" loading="lazy" alt="An open manuscript with a note card over its left page giving an English translation, the Arabic, and a romanisation.">
+              <figcaption>Notes: the manuscript's annotations, here translations of its Arabic, pinned where they belong.</figcaption>
+            </figure>
+          </article>
+
+          <div class="tools">
+            <article class="tool">
+              <img src="/demo/xr-landing/xray-lens.jpg" width="1600" height="827" loading="lazy" alt="A Victorian painting of John Dee before Elizabeth I, with a round lens over the queen's head showing the X-ray beneath.">
+              <div>
+                <h3>Lens</h3>
+                <p>Where a work has other layers (an X-ray, infrared), look through a round lens and drag it across. Only the tiles under the lens are fetched.</p>
+              </div>
+            </article>
+            <article class="tool">
+              <img src="/demo/xr-landing/compare.jpg" width="1600" height="827" loading="lazy" alt="Two paintings floating side by side in front of the gallery wall, each with Relief, Gloss and Done comparing buttons.">
+              <div>
+                <h3>Compare</h3>
+                <p>Pick two paintings and they leave their walls to hang side by side in front of you, both at full resolution. Done sends them back.</p>
+              </div>
+            </article>
+            <article class="tool">
+              <img src="/demo/xr-landing/search.jpg" width="1600" height="827" loading="lazy" alt="A search panel listing results for heart, each with a book, a page number and the match in context.">
+              <div>
+                <h3>Search</h3>
+                <p>Type on a keyboard you pinch, and every book with a IIIF Content Search service is searched. Pinch a result to walk to its book, open at the page, with the match lit.</p>
+              </div>
+            </article>
+          </div>
+
+          <article class="step leave">
+            <div>
+              <p class="number">6 · Leave</p>
+              <h3>Back to Mirador, where you were</h3>
+              <p>
+                Press the Digital Crown. Mirador reopens on the work you were at, zoomed to the detail you were looking at.
+                A book from the reading room opens in its own window, in book view, at the pages you were reading, right
+                here on this page.
+              </p>
+            </div>
+            <figure>
+              <img src="/demo/xr-landing/leave.jpg" width="1600" height="974" loading="lazy" alt="Mirador with two windows side by side: the National Gallery's van Gogh, and the Bodleian manuscript open in book view at its inside cover.">
+              <figcaption>Leaving at the manuscript: it opens beside the gallery's window, at the pages you were reading.</figcaption>
+            </figure>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="fidelity">
+        <div class="wrap">
+          <p class="kicker">Detail and fidelity</p>
+          <h2 id="fidelity">As close as the scan goes</h2>
+          <div class="stats">
+            <div class="stat"><strong>613 MP</strong><span>The National Gallery of Art's van Gogh Self-Portrait: 21,687 × 28,273 pixels.</span></div>
+            <div class="stat"><strong>35 µm</strong><span>Of painting per pixel, with the work hung 1 m tall.</span></div>
+            <div class="stat"><strong>4493 × 3604</strong><span>Pixels per eye on Apple Vision Pro. Tiles are chosen to match them, from where you stand.</span></div>
+            <div class="stat"><strong>88 fps</strong><span>Measured on Vision Pro with 146 tiles on screen.</span></div>
+            <div class="stat"><strong>192 MB</strong><span>One shared tile budget. Tiles out of view aren't fetched.</span></div>
+            <div class="stat"><strong>Unlit</strong><span>The art isn't tone mapped or lit by the room: its colours are shown as published.</span></div>
+          </div>
+          <p class="honest">
+            Two honest limits. Relief is estimated from the image's lightness, at 0.6 mm of paint per unit, not measured from
+            the surface. And every work hangs 1 m tall for now; true physical scale is on the way.
+          </p>
+        </div>
+      </section>
+
+      <section aria-labelledby="controls">
+        <div class="wrap">
+          <p class="kicker">At a glance</p>
+          <h2 id="controls">Controls</h2>
+          <dl class="controls">
+            <div><dt>Pinch a painting</dt><dd>Walk up to it; pinch again to step in close or back.</dd></div>
+            <div><dt>Look down, pinch and hold</dt><dd>Teleport: move your hand to choose your heading, release to go, lift to cancel.</dd></div>
+            <div><dt>Pinch a wall and flick</dt><dd>Turn 45° that way.</dd></div>
+            <div><dt>Pinch the doorway</dt><dd>Walk through to the other room.</dd></div>
+            <div><dt>Pinch a page</dt><dd>Right-hand page reads on, left-hand page goes back.</dd></div>
+            <div><dt>Relief · Gloss</dt><dd>Raised paint and varnish glints, each on its own; both off is the image as published.</dd></div>
+            <div><dt>Light · Lens</dt><dd>Pinch and drag: the lamp moves the light, the lens moves over the painting.</dd></div>
+            <div><dt>Digital Crown</dt><dd>Leave, and pick up in Mirador where you were.</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section aria-labelledby="built">
+        <div class="wrap">
+          <p class="kicker">Under the hood</p>
+          <h2 id="built">How it's built</h2>
+          <div class="columns">
+            <div>
+              <h3>A set of Mirador plugins</h3>
+              <p>
+                The gallery is a Mirador plugin: buttons in the workspace and window bars, a stage for the 3D scene, and its
+                state in Mirador's own store. Manifests, image information, annotations and searches all go through
+                Mirador's actions and sagas, so its request handling and IIIF auth still apply.
+              </p>
+            </div>
+            <div>
+              <h3>Open standards</h3>
+              <p>
+                IIIF Image API tiles for every image; the Presentation API for works, books, paged and right-to-left
+                reading, and Choice layers; Web Annotations for notes; Content Search for search. WebXR in Safari for the
+                headset.
+              </p>
+            </div>
+            <div>
+              <h3>three.js on the web</h3>
+              <p>
+                Rendered with <a href="https://threejs.org">three.js</a>, <a href="https://r3f.docs.pmnd.rs">React Three Fiber</a>
+                and <a href="https://pmndrs.github.io/xr">@react-three/xr</a>. The room is lit by an environment rendered from
+                itself, and its oak floor is a CC0 scan. It's all a static web page: no app to install.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="viewer" aria-labelledby="viewer-title">
+        <div class="wrap">
+          <p class="kicker">Explore in 2D</p>
+          <h2 id="viewer-title">The same collection, in Mirador</h2>
+          <p class="intro">
+            This is the catalogue the gallery is built from. Open anything here, then press the cube button to see it in XR.
+            When you leave the gallery, you land back here, on what you were looking at.
+          </p>
+          <div class="viewer-frame">
+            <div id="mirador"></div>
+          </div>
+          <div class="actions" style="margin-top: 24px">
+            <button class="enter" type="button" data-enter-xr disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 3 7v10l9 5 9-5V7l-9-5Zm0 2.3 6.5 3.6L12 11.5 5.5 7.9 12 4.3ZM5 9.6l6 3.3v6.6l-6-3.3V9.6Zm8 9.9v-6.6l6-3.3v6.6l-6 3.3Z"/></svg>
+              <span data-enter-label>Enter the gallery</span>
+            </button>
+          </div>
+          <p class="status" data-xr-status aria-live="polite"></p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <p>
+          Images courtesy of the National Gallery of Art (Open Access), the Bodleian Libraries, the Bibliothèque nationale
+          de France (Gallica), e-codices, the Wellcome Collection, Stanford University Libraries and the IIIF Cookbook.
+          Oak parquet: a CC0 scan from Poly Haven by Sergej Majboroda and Jenelle van Heerden.
+        </p>
+        <p>
+          Built on <a href="https://projectmirador.org">Mirador</a> (Apache 2.0).
+          Source: <a href="https://github.com/msitarzewski/miradorxr">github.com/msitarzewski/miradorxr</a>.
+        </p>
+      </div>
+    </footer>
+
+    <script type="module">
+      import Mirador from '../src';
+      import settings from '../__tests__/integration/mirador-configs/xr-gallery.js';
+      import { enterXRGallery, galleryReady, stageReady } from '../src/xr/enterGallery';
+      import { getXRWindowId } from '../src/xr/state';
+
+      const viewer = Mirador.viewer(settings.config, settings.plugins);
+      const buttons = [...document.querySelectorAll('[data-enter-xr]')];
+      const statuses = [...document.querySelectorAll('[data-xr-status]')];
+      const support = { checked: false, immersive: false };
+      let staged = false;
+      let loaded = false;
+      let inXR = false;
+
+      /** Shows why the gallery can or can't be entered yet, and enables the buttons when it can */
+      function update(message) {
+        const ready = support.immersive && staged && loaded;
+        let text = message;
+        if (!text) {
+          if (support.checked && !support.immersive) {
+            text = 'To enter, open this page in Safari on Apple Vision Pro. Meanwhile, the collection is below in 2D.';
+          } else if (!ready) {
+            text = 'Getting the gallery ready…';
+          } else {
+            text = 'Ready when you are.';
+          }
+        }
+        buttons.forEach((button) => {
+          button.disabled = !ready;
+        });
+        statuses.forEach((status, index) => {
+          status.textContent = index === 0 || message ? text : '';
+        });
+      }
+
+      (navigator.xr ? navigator.xr.isSessionSupported('immersive-vr') : Promise.resolve(false))
+        .catch(() => false)
+        .then((immersive) => {
+          Object.assign(support, { checked: true, immersive });
+          update();
+        });
+
+      stageReady.then(() => {
+        staged = true;
+        update();
+      });
+
+      viewer.store.subscribe(() => {
+        const state = viewer.store.getState();
+        const nowLoaded = galleryReady(state);
+        if (nowLoaded !== loaded) {
+          loaded = nowLoaded;
+          update();
+        }
+
+        // Back from XR: show where you were, in the 2D viewer
+        const nowInXR = Boolean(getXRWindowId(state));
+        if (inXR && !nowInXR) document.getElementById('viewer').scrollIntoView({ behavior: 'smooth' });
+        inXR = nowInXR;
+      });
+
+      buttons.forEach((button) =>
+        button.addEventListener('click', () => {
+          // Straight from the click: Safari only starts a session from a user activation
+          enterXRGallery(viewer.store).catch((error) => update(`Couldn't start the gallery: ${error.message}`));
+        }),
+      );
+    </script>
+  </body>
+</html>

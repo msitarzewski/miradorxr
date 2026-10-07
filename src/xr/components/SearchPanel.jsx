@@ -125,7 +125,7 @@ export function SearchPanel({ fetching, hits, onClose, onHit, onSearch, ...group
     <group {...groupProps}>
       <mesh onClick={noop} position={[0, TOP + 0.04 - height / 2, -0.004]}>
         <planeGeometry args={[PANEL_WIDTH, height]} />
-        <meshBasicMaterial color="#f3efe6" opacity={0.94} toneMapped={false} transparent />
+        <meshBasicMaterial color="#f3efe6" toneMapped={false} />
       </mesh>
       <LabelButton onClick={noop} position={[-0.07, TOP, 0]} text={text ? `${text}▏` : 'Type to search the books'} />
       <LabelButton
