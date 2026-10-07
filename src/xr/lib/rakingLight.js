@@ -15,34 +15,26 @@ export function onWorkPlane({ direction, origin }) {
 }
 
 /**
- * The spot on the work's plane that a light direction shines from, seen as
- * a lamp `radius` metres out: straight in front of the centre for a light
- * from the front, further out the lower it rakes.
- */
-export function lightSpot(light, radius) {
-  const lift = Math.max(light.z, MIN_LIFT);
-  return { x: (light.x / lift) * radius, y: (light.y / lift) * radius };
-}
-
-/**
- * Drags the raking light: the spot it shines from moves across the work's
- * plane as far as the pinch has moved across it since the drag began, so
- * the light never jumps when you take hold of it. Pointing further out
- * from the work rakes it lower; it never goes behind or flush with the
- * surface.
+ * The raking light from where its lamp is held, in the work's own space (x
+ * across, y up, z out of the surface): the light shines from the work's
+ * centre towards the lamp, kept out in front of the surface by MIN_LIFT,
+ * and the lamp stays within reach of the work.
  *
- * @param {{x, y}} startSpot - lightSpot of the light when the drag began
- * @param {{x, y}} from - where the pinch met the plane when the drag began
- * @param {{x, y}} to - where it meets the plane now
+ * @param {Vector3} lamp - where the lamp is held, relative to the work's centre
  * @param {Vector3} target - receives the unit light direction
+ * @returns {number} the lamp's distance from the work's centre
  */
-export function dragLight(startSpot, from, to, radius, target) {
-  target.set(startSpot.x + to.x - from.x, startSpot.y + to.y - from.y, radius).normalize();
+export function lampLight(lamp, target, { maxDistance = 2.5, minDistance = 0.25 } = {}) {
+  if (lamp.lengthSq() < 1e-8) {
+    target.set(0, 0, 1);
+    return minDistance;
+  }
+  target.copy(lamp).normalize();
 
   if (target.z < MIN_LIFT) {
-    const across = Math.hypot(target.x, target.y);
+    const across = Math.hypot(target.x, target.y) || 1;
     const spread = Math.sqrt(1 - MIN_LIFT * MIN_LIFT) / across;
     target.set(target.x * spread, target.y * spread, MIN_LIFT);
   }
-  return target;
+  return Math.min(maxDistance, Math.max(minDistance, lamp.length()));
 }

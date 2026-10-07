@@ -1,0 +1,137 @@
+{
+  "license": "CC0-1.0",
+  "objects": {
+    "79": {
+      "element": "overall",
+      "height": 84.5,
+      "width": 66
+    },
+    "398": {
+      "element": "overall",
+      "height": 76.8,
+      "width": 58.4
+    },
+    "576": {
+      "element": "overall",
+      "height": 114.9,
+      "width": 170.2
+    },
+    "1138": {
+      "element": "overall",
+      "height": 170.2,
+      "width": 188
+    },
+    "1147": {
+      "element": "overall",
+      "height": 56.1,
+      "width": 101.2
+    },
+    "1225": {
+      "element": "overall",
+      "height": 92.3,
+      "width": 122.8
+    },
+    "1231": {
+      "element": "overall",
+      "height": 242.9,
+      "width": 138.5
+    },
+    "1236": {
+      "element": "painted surface",
+      "height": 39.7,
+      "width": 35.5
+    },
+    "12198": {
+      "element": "overall",
+      "height": 213,
+      "width": 107.9
+    },
+    "33253": {
+      "element": "overall",
+      "height": 137.5,
+      "width": 172.5
+    },
+    "37003": {
+      "element": "overall",
+      "height": 74.6,
+      "width": 65.1
+    },
+    "43624": {
+      "element": "overall",
+      "height": 93.3,
+      "width": 111.5
+    },
+    "46114": {
+      "element": "overall",
+      "height": 203.9,
+      "width": 125.1
+    },
+    "46159": {
+      "element": "overall",
+      "height": 152.5,
+      "width": 99
+    },
+    "46303": {
+      "element": "overall",
+      "height": 81.1,
+      "width": 64.8
+    },
+    "46471": {
+      "element": "overall",
+      "height": 182.1,
+      "width": 229.7
+    },
+    "46626": {
+      "element": "overall",
+      "height": 73.3,
+      "width": 60.3
+    },
+    "46627": {
+      "element": "overall",
+      "height": 73,
+      "width": 92
+    },
+    "52178": {
+      "element": "overall",
+      "height": 46.1,
+      "width": 60.9
+    },
+    "52450": {
+      "element": "overall",
+      "height": 134.3,
+      "width": 195.3
+    },
+    "61371": {
+      "element": "overall",
+      "height": 48.9,
+      "width": 66
+    },
+    "66409": {
+      "element": "overall",
+      "height": 81.3,
+      "width": 75.6
+    },
+    "74796": {
+      "element": "overall",
+      "height": 81.28,
+      "width": 101.6
+    },
+    "106382": {
+      "element": "overall",
+      "height": 57.79,
+      "width": 44.5
+    },
+    "134485": {
+      "element": "overall",
+      "height": 106.7,
+      "width": 153
+    },
+    "164923": {
+      "element": "overall",
+      "height": 48,
+      "width": 62
+    }
+  },
+  "source": "National Gallery of Art open data, https://github.com/NationalGalleryOfArt/opendata (objects_dimensions.csv)",
+  "units": "cm"
+}

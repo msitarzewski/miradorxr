@@ -7,15 +7,10 @@ import { fetchInfoResponse } from '../../state/actions';
 import { getCurrentCanvas, selectInfoResponse } from '../../state/selectors';
 import { useGalleryContents } from '../hooks/useGalleryContents';
 import { useGallerySearch } from '../hooks/useGallerySearch';
-import {
-  CLOSE_DISTANCE,
-  CLOSE_READING_DISTANCE,
-  READING_DISTANCE,
-  useGalleryNavigation,
-  VIEW_DISTANCE,
-} from '../hooks/useGalleryNavigation';
+import { CLOSE_READING_DISTANCE, READING_DISTANCE, useGalleryNavigation } from '../hooks/useGalleryNavigation';
 import { useViewportHandoff } from '../hooks/useViewportHandoff';
-import { compareSpots, planGallery } from '../lib/galleryLayout';
+import { compareSpots, hangingCentre, planGallery } from '../lib/galleryLayout';
+import { physicalSize } from '../lib/physicalSize';
 import { createTileLoader } from '../lib/loadTileTexture';
 import { createPaintUniforms } from '../lib/paintRelief';
 import { PreviewCache } from '../lib/PreviewCache';
@@ -87,13 +82,8 @@ function HungGallery({ books, plan, windowId, works }) {
   // Everywhere you can stand to look: each painting, then each lectern
   const stations = useMemo(
     () => [
-      ...placements.map((placement, work) => ({
-        ...placement,
-        close: CLOSE_DISTANCE,
-        kind: 'painting',
-        view: VIEW_DISTANCE,
-        work,
-      })),
+      // Each painting's viewing distances suit its size
+      ...placements.map((placement, work) => ({ ...placement, kind: 'painting', work })),
       ...lecterns.map((lectern, book) => ({
         ...lectern,
         book,
@@ -179,7 +169,7 @@ function HungGallery({ books, plan, windowId, works }) {
     if (!comparing.head) return [];
     return compareSpots(
       comparing.head,
-      comparing.works.map((work) => placements[work].width),
+      comparing.works.map((work) => placements[work]),
       { height: eyeHeight ?? DEFAULT_EYE_HEIGHT },
     );
   }, [comparing, eyeHeight, placements]);
@@ -222,7 +212,9 @@ function HungGallery({ books, plan, windowId, works }) {
           active={index === active.work}
           cache={cache}
           canvasId={work.canvasId}
-          centreHeight={eyeHeight ?? DEFAULT_EYE_HEIGHT}
+          centreHeight={hangingCentre(eyeHeight ?? DEFAULT_EYE_HEIGHT, placements[index].height)}
+          eyeHeight={eyeHeight ?? DEFAULT_EYE_HEIGHT}
+          size={work.size}
           floating={floats[comparing.works.indexOf(index)] ?? null}
           imageResource={work.imageResource}
           inCompare={comparing.works.includes(index)}
@@ -338,11 +330,20 @@ function Gallery({ windowId }) {
   useEffect(() => {
     if (hung || !(timedOut || (settled && infoResponses.every(Boolean)))) return;
     if (works.length === 0 && books.length === 0) return;
-    const aspects = works.map(({ aspect }, index) => {
+    // Each work's size, from its evidence and its image's own proportions
+    const sized = works.map((work, index) => {
       const json = infoResponses[index]?.json;
-      return json?.width > 0 && json?.height > 0 ? json.width / json.height : aspect;
+      const aspect = json?.width > 0 && json?.height > 0 ? json.width / json.height : work.aspect;
+      return { ...work, size: physicalSize(work.evidence, aspect) };
     });
-    setHung({ books, plan: planGallery(aspects, books.length), works });
+    setHung({
+      books,
+      plan: planGallery(
+        sized.map(({ size }) => size),
+        books.length,
+      ),
+      works: sized,
+    });
   }, [books, hung, infoResponses, settled, timedOut, works]);
 
   return (

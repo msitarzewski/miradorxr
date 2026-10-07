@@ -1,4 +1,4 @@
-import { fitBox, leafSide, PAGE, spreadLayout, turnFromPinch } from '../../../src/xr/lib/bookLayout';
+import { bookBoard, fitBox, leafSide, leafTurn, PAGE, spreadLayout, turnFromPinch } from '../../../src/xr/lib/bookLayout';
 
 const page = (label, aspect = 0.7) => ({ aspect, label });
 const book = (overrides = {}) => ({
@@ -60,5 +60,48 @@ describe('page turning', () => {
     const rtl = book({ direction: 'right-to-left' });
     expect(turnFromPinch(rtl, -0.2)).toEqual(1);
     expect(leafSide(rtl, 1)).toEqual('left');
+  });
+});
+
+describe('leafTurn', () => {
+  it('turns the leaf as its edge is pulled round the spine', () => {
+    expect(leafTurn(0, 0.44)).toEqual(0);
+    expect(leafTurn(0.44, 0.44)).toBeCloseTo(0.5);
+    expect(leafTurn(0.88, 0.44)).toBeCloseTo(1);
+    expect(leafTurn(0.11, 0.44)).toBeGreaterThan(0.2);
+  });
+
+  it('stays put when pulled the wrong way, and stops at flat on the other side', () => {
+    expect(leafTurn(-0.2, 0.44)).toEqual(0);
+    expect(leafTurn(3, 0.44)).toEqual(1);
+  });
+});
+
+describe('at true size', () => {
+  const sized = (height, aspect = 0.75) => ({
+    aspect,
+    label: 'f.',
+    size: { approximate: false, height, width: height * aspect },
+  });
+
+  it('lays pages of a known size at that size, against the spine', () => {
+    const [left, right] = spreadLayout(book({ pages: [sized(0.324), sized(0.324), sized(0.324)], spreads: [[0], [1, 2]] }), 1);
+    expect(left.height).toBeCloseTo(0.324);
+    expect(right.width).toBeCloseTo(0.243);
+    expect(right.x - right.width / 2).toBeCloseTo(0.005);
+  });
+
+  it('fits pages whose size is not known to the board, as before', () => {
+    const unknown = { aspect: 0.7, label: 'f.', size: { approximate: true, height: 1, width: 0.7 } };
+    const [cover] = spreadLayout(book({ pages: [unknown], spreads: [[0]] }), 0);
+    expect(cover.height).toBeCloseTo(PAGE.height);
+  });
+
+  it('keeps the usual board for small books, and grows it for large ones', () => {
+    expect(bookBoard(book({ pages: [sized(0.26)] })).board).toEqual({ depth: 0.68, width: 1 });
+    const atlas = bookBoard(book({ pages: [sized(0.7, 0.8), sized(0.7, 0.8)] }));
+    expect(atlas.block.width).toBeCloseTo(2 * 0.56 + 0.01);
+    expect(atlas.board.width).toBeCloseTo(1.13 + 0.14);
+    expect(atlas.board.depth).toBeCloseTo(0.84);
   });
 });

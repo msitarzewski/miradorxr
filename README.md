@@ -18,12 +18,12 @@ itself, choose **Enter XR gallery** (the cube in the left-hand panel) or
 ### In the gallery
 
 - **Walk the room.** Every image in the manifest is hung in order, clockwise,
-  starting with the one the window was showing. Beside each work is a wall
-  label with its title, details and credit, from the same data as Mirador's
-  information panel.
-- **Pinch a painting** to walk up to it. Pinch it again to step in close
-  (0.55 m) or back to viewing distance (1.5 m). **‹ Previous** and **Next ›**
-  step along the wall.
+  at its real size, starting with the one the window was showing. Beside each
+  work is a wall label with its title, details, size and credit, from the
+  same data as Mirador's information panel.
+- **Pinch a painting** to walk up to it, to a distance that suits its size.
+  Pinch it again to step in close (55 cm, for every work) or back. **‹ Previous** and **Next ›** step
+  along the wall.
 - **Teleport anywhere:** look down at the floor, then pinch and hold where you
   want to stand. Move your pinching hand the way you want to face; pull it
   back towards you to land turned round. Release to go, or raise your hand to
@@ -77,8 +77,8 @@ Under the buttons, a second row offers what each work has:
 ### Detail and fidelity
 
 - **Full resolution, streamed as IIIF tiles.** The National Gallery of Art's
-  van Gogh *Self-Portrait* is 21,687 × 28,273 pixels (613 megapixels). Hung
-  1 m tall, that's about 35 µm of painting per pixel.
+  van Gogh *Self-Portrait* is 21,687 × 28,273 pixels (613 megapixels). At its
+  true size, 57.8 × 44.5 cm, that's about 20 µm of painting per pixel.
 - **Detail follows your eyes.** Tiles are chosen from the headset's own
   per-eye resolution: each tile is refined until its pixels are as fine as
   the display pixels it covers, seen from where you stand. Lean in and finer
@@ -90,7 +90,8 @@ Under the buttons, a second row offers what each work has:
     textures.
   - 88 fps with 146 tile meshes, about 300 draw calls.
   - At 0.6 m from a 1 m painting it draws level 5 of 8 (373 tiles, 121 MB).
-    The full resolution only becomes resolvable about 7 cm from the canvas.
+    At true size, the van Gogh's full resolution only becomes resolvable
+    about 5 cm from the canvas.
 - **Memory stays bounded.** All works share one tile cache with a 192 MB
   budget and six loads in flight. Tiles out of view aren't fetched, and the
   least recently wanted are evicted first.
@@ -101,8 +102,21 @@ Under the buttons, a second row offers what each work has:
 - **Colour is untouched.** Paintings, labels and buttons are drawn unlit and
   without tone mapping, so a work's colours are shown as the institution
   published them. Only the room is lit, with neutral tone mapping.
-- **Scale is not yet true.** Every work hangs 1 m tall for now; true
-  physical scale from IIIF or museum data is on the roadmap.
+- **True scale.** Works hang at their recorded size, and books lie open at
+  their page size. The size comes from, in order of trust:
+  1. A IIIF Physical Dimensions service, where a manifest has one.
+  2. The institution's own measurements: for now, the National Gallery of
+     Art's [open data](https://github.com/NationalGalleryOfArt/opendata)
+     (CC0), extracted for the catalogue's works by
+     [`scripts/nga-dimensions.js`](scripts/nga-dimensions.js).
+  3. Dimensions written in the manifest's metadata, such as "445 x 280 mm",
+     "Size of page: 324 x 245 mm" or a library record's "; 26 cm". Each is
+     checked against the image's proportions, so frames, mounts and written
+     areas are passed over.
+
+  Where no size is published, a work hangs 1 m tall (a book fits its
+  lectern) and its label says the size isn't recorded. Large works hang
+  clear of the floor and ceiling, and you stand further back from them.
 
 ### Devices and sources
 

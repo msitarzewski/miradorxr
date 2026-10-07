@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useXR } from '@react-three/xr';
-import { Quaternion, Shape, Vector3 } from 'three';
+import { Shape, Vector3 } from 'three';
+import { usePinchHand } from '../hooks/usePinchHand';
 import { floorHit, handHeading, insideFloors } from '../lib/floorTarget';
 
 // Looking more than about 20 degrees below level shows where your head is aimed
@@ -14,7 +14,6 @@ const CANCEL_COLOUR = '#8a8a8a';
 const headPosition = new Vector3();
 const headForward = new Vector3();
 const movement = new Vector3();
-const originRotation = new Quaternion();
 
 /** A flat arrow pointing down -z, laid on the floor, for the heading you'll face */
 const arrowShape = new Shape();
@@ -34,89 +33,61 @@ arrowShape.closePath();
  * to face left, away to face on, back towards yourself to turn round. Release
  * to go; raise your hand to cancel (the target greys out).
  *
- * The hand is read from the pinch's gripSpace, which Vision Pro tracks at the
- * pinching fingers. Its targetRaySpace isn't used for steering: that ray
- * pivots between the eyes, so hand movement only swings its angle.
+ * The hand is followed by usePinchHand, from the pinching fingers rather
+ * than the pinch's ray.
  */
 export function FloorTeleport({ floors, headInWorld, onTeleport }) {
   const gl = useThree((state) => state.gl);
-  const session = useXR((state) => state.session);
+  const grab = usePinchHand();
   const ring = useRef();
   const target = useRef();
   const targetMaterial = useRef();
   const arrow = useRef();
-  const lastSelect = useRef(null);
   const press = useRef(null);
-  const teleport = useRef(onTeleport);
-  teleport.current = onTeleport;
 
-  // The input source behind a pinch: a pointer event alone doesn't say which hand
-  useEffect(() => {
-    if (!session) return undefined;
-
-    /** */
-    const handleSelectStart = ({ inputSource }) => {
-      lastSelect.current = inputSource;
-    };
-    /** */
-    const handleSelectEnd = ({ inputSource }) => {
-      const { current } = press;
-      if (!current || current.source !== inputSource) return;
-      press.current = null;
-      target.current.visible = false;
-      if (!current.cancelled) teleport.current(current.spot.x, current.spot.z, current.yaw);
-    };
-
-    session.addEventListener('selectstart', handleSelectStart);
-    session.addEventListener('selectend', handleSelectEnd);
-    return () => {
-      session.removeEventListener('selectstart', handleSelectStart);
-      session.removeEventListener('selectend', handleSelectEnd);
-    };
-  }, [session]);
-
-  useFrame((_state, _delta, frame) => {
+  useFrame(() => {
     if (!gl.xr.isPresenting || !ring.current) return;
 
-    const camera = gl.xr.getCamera();
-    const { current } = press;
-
     // matrixWorld is the head between the eyes, including the XR origin
+    const camera = gl.xr.getCamera();
     headPosition.setFromMatrixPosition(camera.matrixWorld);
     headForward.set(0, 0, -1).transformDirection(camera.matrixWorld);
-    const hit = !current && headForward.y < LOOKING_DOWN && floorHit(headPosition, headForward);
+    const hit = !press.current && headForward.y < LOOKING_DOWN && floorHit(headPosition, headForward);
     ring.current.visible = Boolean(hit);
     if (hit) {
       const { x, z } = insideFloors(hit, floors);
       ring.current.position.set(x, 0.004, z);
     }
-
-    const pose = current?.source && frame?.getPose(current.source.gripSpace, gl.xr.getReferenceSpace());
-    if (!pose) return;
-
-    // The hand's movement since the pinch began, turned from the origin's space into the room's
-    const { position } = pose.transform;
-    if (!current.start) current.start = { x: position.x, y: position.y, z: position.z };
-    movement.set(position.x - current.start.x, 0, position.z - current.start.z);
-    movement.applyQuaternion(camera.parent ? camera.parent.getWorldQuaternion(originRotation) : originRotation.identity());
-
-    current.yaw = handHeading(movement, current.yaw);
-    current.cancelled = position.y - current.start.y > LIFT_TO_CANCEL;
-    arrow.current.rotation.y = current.yaw;
-    targetMaterial.current.color.set(current.cancelled ? CANCEL_COLOUR : TARGET_COLOUR);
   });
 
   /** */
   const handlePointerDown = (event) => {
     event.stopPropagation();
     const spot = insideFloors(event.point, floors);
-    const { yaw } = headInWorld();
-    press.current = { cancelled: false, source: lastSelect.current, spot, start: null, yaw };
+    const pinch = { cancelled: false, spot, yaw: headInWorld().yaw };
+    press.current = pinch;
 
     target.current.visible = true;
     target.current.position.set(spot.x, 0.006, spot.z);
-    arrow.current.rotation.y = yaw;
+    arrow.current.rotation.y = pinch.yaw;
     targetMaterial.current.color.set(TARGET_COLOUR);
+
+    grab({
+      /** Steer by the hand's movement across the floor; a raised hand cancels */
+      onMove: (hand, start) => {
+        movement.set(hand.x - start.x, 0, hand.z - start.z);
+        pinch.yaw = handHeading(movement, pinch.yaw);
+        pinch.cancelled = hand.y - start.y > LIFT_TO_CANCEL;
+        arrow.current.rotation.y = pinch.yaw;
+        targetMaterial.current.color.set(pinch.cancelled ? CANCEL_COLOUR : TARGET_COLOUR);
+      },
+      /** Release to go */
+      onRelease: () => {
+        press.current = null;
+        target.current.visible = false;
+        if (!pinch.cancelled) onTeleport(spot.x, spot.z, pinch.yaw);
+      },
+    });
   };
 
   return (

@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { dragLight, lightSpot, MIN_LIFT, onWorkPlane } from '../../../src/xr/lib/rakingLight';
+import { lampLight, MIN_LIFT, onWorkPlane } from '../../../src/xr/lib/rakingLight';
 
 describe('onWorkPlane', () => {
   it('finds where a ray from in front meets the work', () => {
@@ -13,33 +13,27 @@ describe('onWorkPlane', () => {
   });
 });
 
-describe('dragLight', () => {
-  const radius = 0.6;
-  const start = new Vector3(-0.6, 0.6, 0.45).normalize();
-
-  it('leaves the light where it was until the pinch moves', () => {
-    const light = dragLight(lightSpot(start, radius), { x: 1, y: 1 }, { x: 1, y: 1 }, radius, new Vector3());
-    expect(light.x).toBeCloseTo(start.x);
-    expect(light.y).toBeCloseTo(start.y);
-    expect(light.z).toBeCloseTo(start.z);
+describe('lampLight', () => {
+  it('shines from the work towards wherever the lamp is held', () => {
+    const light = new Vector3();
+    const distance = lampLight(new Vector3(-0.3, 0.4, 0.5), light);
+    expect(light.toArray().map((value) => Number(value.toFixed(3)))).toEqual([-0.424, 0.566, 0.707]);
+    expect(distance).toBeCloseTo(Math.hypot(0.3, 0.4, 0.5));
   });
 
-  it('rakes lower from the side the pinch moves towards', () => {
-    const light = dragLight(lightSpot(start, radius), { x: 0, y: 0 }, { x: -1, y: 0 }, radius, new Vector3());
-    expect(light.x).toBeLessThan(start.x);
-    expect(light.z).toBeLessThan(start.z);
-    expect(light.length()).toBeCloseTo(1);
-  });
-
-  it('brings the light round in front when the pinch moves back over the centre', () => {
-    const spot = lightSpot(start, radius);
-    const light = dragLight(spot, { x: 0, y: 0 }, { x: -spot.x, y: -spot.y }, radius, new Vector3());
-    expect(light.toArray().map((value) => Math.round(value * 1e6) / 1e6)).toEqual([0, 0, 1]);
-  });
-
-  it('never goes behind or flush with the surface', () => {
-    const light = dragLight({ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 50, y: 0 }, radius, new Vector3());
+  it('follows the lamp right round to the side, but never behind or flush with the surface', () => {
+    const light = new Vector3();
+    lampLight(new Vector3(0.6, 0, -0.2), light);
     expect(light.z).toBeCloseTo(MIN_LIFT);
+    expect(light.x).toBeGreaterThan(0.95);
     expect(light.length()).toBeCloseTo(1);
+  });
+
+  it('keeps the lamp within reach of the work', () => {
+    const light = new Vector3();
+    expect(lampLight(new Vector3(0, 0, 0.05), light)).toEqual(0.25);
+    expect(lampLight(new Vector3(0, 0, 9), light)).toEqual(2.5);
+    expect(lampLight(new Vector3(0, 0, 0), light)).toEqual(0.25);
+    expect(light.toArray()).toEqual([0, 0, 1]);
   });
 });

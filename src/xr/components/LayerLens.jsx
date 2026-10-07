@@ -6,6 +6,7 @@ import { Matrix4, Ray, Vector3 } from 'three';
 import { getIiifResourceImageService } from '../../lib/iiif';
 import { fetchInfoResponse } from '../../state/actions';
 import { selectInfoResponses } from '../../state/selectors';
+import { handGain, usePinchHand } from '../hooks/usePinchHand';
 import { onWorkPlane } from '../lib/rakingLight';
 import { TileCache } from '../lib/TileCache';
 import { layerLabel } from '../lib/wallLabel';
@@ -19,6 +20,7 @@ const noRaycast = () => {};
 const LENS_RADIUS = 0.11;
 const toLocal = new Matrix4();
 const localRay = new Ray();
+const lensAt = new Vector3();
 
 /** The next layer the lens shows: each in turn, then none */
 const nextLayer = (layer, count) => {
@@ -28,9 +30,9 @@ const nextLayer = (layer, count) => {
 
 /**
  * The layer lens for a work with other layers: which one it shows (none
- * until you choose), where it sits on the image, the pointer handlers that
- * move it while it's out (pinch the image and drag), and the tool that
- * steps through the layers. The lens goes away when you leave the work.
+ * until you choose), where it sits on the image, the pointer handler that
+ * moves it while it's out (pinch where you want it and move your hand),
+ * and the tool that steps through the layers. The lens goes away when you leave the work.
  *
  * @param {object} image - ref to the group the image is centred in
  * @param {{width, height}} shown - the image's size there, in metres
@@ -40,43 +42,43 @@ export function useLayerLens({ active, image, layers, shown }) {
   const [index, setIndex] = useState(null);
   const lens = useMemo(() => ({ centre: { value: new Vector3() }, radius: { value: LENS_RADIUS } }), []);
   const region = useRef({ radius: LENS_RADIUS, x: 0, y: 0 });
-  const drag = useRef(null);
+  const grab = usePinchHand();
   const on = active && index !== null;
 
   useEffect(() => {
     if (!active) setIndex(null);
   }, [active]);
 
-  /** Puts the lens where the pinch's ray meets the image, kept on it */
-  const move = (event) => {
-    image.current.updateWorldMatrix(true, false);
-    localRay.copy(event.ray).applyMatrix4(toLocal.copy(image.current.matrixWorld).invert());
-    const point = onWorkPlane(localRay);
-    if (!point) return;
-    region.current.x = Math.max(-shown.width / 2, Math.min(shown.width / 2, point.x));
-    region.current.y = Math.max(-shown.height / 2, Math.min(shown.height / 2, point.y));
+  /** Puts the lens at a point in the image's space, kept on the image */
+  const place = ({ x, y }) => {
+    region.current.x = Math.max(-shown.width / 2, Math.min(shown.width / 2, x));
+    region.current.y = Math.max(-shown.height / 2, Math.min(shown.height / 2, y));
   };
 
   const handlers = on
     ? {
-        /** */
+        /**
+         * The pinch puts the lens where you're looking (the pinch's ray
+         * starts along your gaze); after that it moves with your hand
+         */
         onPointerDown: (event) => {
           event.stopPropagation();
-          event.object.setPointerCapture(event.pointerId);
-          drag.current = event.pointerId;
-          move(event);
-        },
-        /** */
-        onPointerMove: (event) => {
-          if (drag.current !== event.pointerId) return;
-          event.stopPropagation();
-          move(event);
-        },
-        /** */
-        onPointerUp: (event) => {
-          if (drag.current !== event.pointerId) return;
-          event.object.releasePointerCapture(event.pointerId);
-          drag.current = null;
+          const group = image.current;
+          group.updateWorldMatrix(true, false);
+          localRay.copy(event.ray).applyMatrix4(toLocal.copy(group.matrixWorld).invert());
+          const point = onWorkPlane(localRay);
+          if (point) place(point);
+
+          const from = group.localToWorld(new Vector3(region.current.x, region.current.y, 0));
+          let gain = null;
+          grab({
+            /** */
+            onMove: (hand, start, head) => {
+              gain ??= handGain(head, start, from, 5);
+              group.updateWorldMatrix(true, false);
+              place(group.worldToLocal(lensAt.copy(hand).sub(start).multiplyScalar(gain).add(from)));
+            },
+          });
         },
       }
     : {};

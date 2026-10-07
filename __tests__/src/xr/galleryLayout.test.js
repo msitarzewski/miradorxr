@@ -1,18 +1,22 @@
 import {
   compareSpots,
+  hangingCentre,
   layoutGallery,
   layoutReadingRoom,
   layoutSkylights,
   planGallery,
+  viewingDistances,
   viewingSpot,
 } from '../../../src/xr/lib/galleryLayout';
 import { insideFloors } from '../../../src/xr/lib/floorTarget';
 
 // 26 works with portrait, landscape and square proportions
 const aspects = Array.from({ length: 26 }, (_, index) => [0.75, 1.35, 1, 0.8, 1.6][index % 5]);
+// Hung 1 m tall, the way works without a recorded size are
+const sizes = aspects.map((aspect) => ({ height: 1, width: aspect }));
 
 describe('layoutGallery', () => {
-  const { placements, room } = layoutGallery(aspects);
+  const { placements, room } = layoutGallery(sizes);
 
   it('hangs every work, sized from its aspect ratio', () => {
     expect(placements).toHaveLength(26);
@@ -57,7 +61,7 @@ describe('layoutGallery', () => {
   });
 
   it('centres a single work on the front wall', () => {
-    const single = layoutGallery([0.8]).placements[0];
+    const single = layoutGallery([{ height: 1, width: 0.8 }]).placements[0];
     expect(single.x).toBeCloseTo(0);
     expect(single.yaw).toBeCloseTo(0);
   });
@@ -100,7 +104,7 @@ describe('layoutSkylights', () => {
 });
 
 describe('layoutGallery with a doorway', () => {
-  const { doorway, placements, room } = layoutGallery(aspects, { doorway: 1.8 });
+  const { doorway, placements, room } = layoutGallery(sizes, { doorway: 1.8 });
 
   it('keeps the middle of the back wall clear for the doorway', () => {
     expect(doorway).toEqual({ width: 1.8, x: 0, z: room.depth / 2 });
@@ -142,7 +146,7 @@ describe('layoutReadingRoom', () => {
 
 describe('planGallery', () => {
   it('joins the gallery to the reading room through a doorway you can walk through', () => {
-    const { doorway, floors, lecterns, placements, rooms } = planGallery(aspects, 6);
+    const { doorway, floors, lecterns, placements, rooms } = planGallery(sizes, 6);
     expect(placements).toHaveLength(26);
     expect(lecterns).toHaveLength(6);
     expect(rooms.map(({ door, name }) => [name, door])).toEqual([
@@ -157,8 +161,8 @@ describe('planGallery', () => {
   });
 
   it('has just the gallery without books, and just the reading room without paintings', () => {
-    expect(planGallery(aspects, 0)).toMatchObject({ doorway: null, lecterns: [] });
-    expect(planGallery(aspects, 0).rooms.map(({ door }) => door)).toEqual([null]);
+    expect(planGallery(sizes, 0)).toMatchObject({ doorway: null, lecterns: [] });
+    expect(planGallery(sizes, 0).rooms.map(({ door }) => door)).toEqual([null]);
     const books = planGallery([], 3);
     expect(books.rooms.map(({ name }) => name)).toEqual(['reading']);
     expect(books.placements).toEqual([]);
@@ -169,7 +173,14 @@ describe('compareSpots', () => {
   const head = { x: 2, yaw: 0, z: 3 };
 
   it('floats the pair side by side in front of you, first on the left, facing you', () => {
-    const [left, right] = compareSpots(head, [0.8, 0.6], { height: 1.4 });
+    const [left, right] = compareSpots(
+      head,
+      [
+        { height: 1, width: 0.8 },
+        { height: 0.75, width: 0.6 },
+      ],
+      { height: 1.4 },
+    );
     expect(left.x).toBeLessThan(head.x);
     expect(right.x).toBeGreaterThan(head.x);
     [left, right].forEach((spot) => {
@@ -184,10 +195,48 @@ describe('compareSpots', () => {
   });
 
   it('scales a wide pair down to fit, and follows your heading', () => {
-    const spots = compareSpots({ x: 0, yaw: Math.PI / 2, z: 0 }, [1.6, 1.6], { height: 1.2 });
+    const wide = { height: 1, width: 1.6 };
+    const spots = compareSpots({ x: 0, yaw: Math.PI / 2, z: 0 }, [wide, wide], { height: 1.2 });
     expect(spots[0].scale).toBeCloseTo(1.7 / 3.45);
     // Facing -x (yaw +90 degrees): in front is -x, and your left is +z
     spots.forEach(({ x }) => expect(x).toBeCloseTo(-1.15));
     expect(spots[0].z).toBeGreaterThan(spots[1].z);
+  });
+});
+
+describe('at true size', () => {
+  // van Gogh's Self-Portrait, and Van Dyck's Marchesa Elena Grimaldi Cattaneo
+  const portrait = { height: 0.578, width: 0.445 };
+  const grand = { height: 2.429, width: 1.385 };
+
+  it('hangs each work at its own size, small ones seen from closer, in a room to step back in', () => {
+    const { placements, room } = layoutGallery([portrait, grand]);
+    expect(Math.min(room.width, room.depth)).toBeGreaterThan(placements[1].view + 0.5);
+    expect(placements.map(({ height }) => height)).toEqual([0.578, 2.429]);
+    expect(placements[0].view).toBeCloseTo(0.77, 1);
+    expect(placements[1].view).toBeGreaterThan(3);
+    placements.forEach(({ close, view }) => expect(close).toBeLessThan(view));
+  });
+
+  it('never stands you further back than the room allows', () => {
+    expect(viewingDistances(grand, { depth: 3, width: 4 }).view).toBeCloseTo(2.4);
+    expect(viewingDistances({ height: 0.1, width: 0.1 }).view).toEqual(0.75);
+  });
+
+  it('gives every work the same close look, whatever its size', () => {
+    [portrait, grand, { height: 0.1, width: 0.1 }].forEach((work) => expect(viewingDistances(work).close).toEqual(0.55));
+  });
+
+  it('hangs at eye height, unless a large work would come too near the floor or ceiling', () => {
+    expect(hangingCentre(1.2, portrait.height)).toEqual(1.2);
+    expect(hangingCentre(1.2, grand.height)).toBeCloseTo(grand.height / 2 + 0.3);
+    // Too tall for both clearances: midway between them
+    expect(hangingCentre(1.75, 2.9)).toBeCloseTo((1.45 + 0.3 + (3.4 - 0.25 - 1.45)) / 2);
+  });
+
+  it('compares works at their true relative sizes, scaled down together to fit', () => {
+    const [small, large] = compareSpots({ x: 0, yaw: 0, z: 0 }, [portrait, grand], { height: 1.4 });
+    expect(small.scale).toEqual(large.scale);
+    expect(large.scale).toBeCloseTo(1.3 / grand.height);
   });
 });

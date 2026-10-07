@@ -4,9 +4,6 @@ import { Quaternion, Vector3 } from 'three';
 import { viewingSpot } from '../lib/galleryLayout';
 import { originForSpot, stationInFront } from '../lib/teleport';
 
-// Metres from a painting: a comfortable look, and a close look for detail
-export const VIEW_DISTANCE = 1.5;
-export const CLOSE_DISTANCE = 0.55;
 // Metres from the middle of a lectern's book to where you stand to read it
 export const READING_DISTANCE = 0.75;
 export const CLOSE_READING_DISTANCE = 0.45;

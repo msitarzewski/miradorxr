@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector, useStore } from 'react-redux';
 import CanvasGroupings from '../../lib/CanvasGroupings';
+import { getIiifResourceImageService } from '../../lib/iiif';
 import { fetchManifest } from '../../state/actions';
 import {
   getCanvases,
   getCatalog,
+  getDestructuredMetadata,
   getManifestoInstance,
   getManifestProviderName,
   getManifests,
@@ -16,6 +18,8 @@ import {
   getWindow,
   getWindowViewType,
 } from '../../state/selectors';
+import { physicalSize } from '../lib/physicalSize';
+import { sizeEvidence } from '../lib/sizeEvidence';
 
 // Preview images for paintings you aren't at: about one display pixel per
 // texel from a couple of metres away
@@ -25,8 +29,11 @@ const MAX_HUNG = 40;
 // Other catalogue manifests with up to this many images are single works, hung with the rest
 const MAX_HUNG_FROM_CATALOGUE = 3;
 
-/** A canvas's image, proportions and preview, or null if it has no IIIF image */
-function imageOf(canvas, getMiradorCanvas, thumbnails) {
+/**
+ * A canvas's image, proportions, preview and the evidence for its physical
+ * size, or null if it has no IIIF image
+ */
+function imageOf(canvas, { getMiradorCanvas, manifestMetadata, thumbnails }) {
   const miradorCanvas = getMiradorCanvas(canvas);
   const resources = miradorCanvas.iiifImageResources;
   // Alternatives from a IIIF Choice (natural light, X-ray, infrared...) are marked preferred or not
@@ -43,6 +50,12 @@ function imageOf(canvas, getMiradorCanvas, thumbnails) {
     canvasHeight: miradorCanvas.getHeight(),
     canvasId: canvas.id,
     canvasWidth: miradorCanvas.getWidth(),
+    evidence: sizeEvidence({
+      canvas,
+      canvasMetadata: getDestructuredMetadata(canvas),
+      imageService: getIiifResourceImageService(imageResource),
+      manifestMetadata,
+    }),
     imageResource,
     label: miradorCanvas.getLabel(),
     layers: layers.length > 1 ? layers : [],
@@ -60,7 +73,8 @@ function imageOf(canvas, getMiradorCanvas, thumbnails) {
  *   collection stands for its first manifest.
  *
  * Catalogue manifests are fetched through Mirador as needed. `settled` is
- * true once each has loaded or failed.
+ * true once each has loaded or failed. Every work and page carries the
+ * `evidence` for its physical size; book pages also carry their `size`.
  *
  * Each work and book carries `lookup`, the selector props that find it:
  * `{ windowId }` for the window's own manifest, `{ manifestId }` otherwise.
@@ -109,8 +123,9 @@ export function useGalleryContents(windowId) {
       const manifesto = getManifestoInstance(state, lookup);
       if (!manifesto || manifesto.isCollection()) return;
 
+      const manifestMetadata = getDestructuredMetadata(manifesto);
       const pages = getCanvases(state, lookup)
-        .map((canvas) => imageOf(canvas, getMiradorCanvas, thumbnails))
+        .map((canvas) => imageOf(canvas, { getMiradorCanvas, manifestMetadata, thumbnails }))
         .filter(Boolean);
       if (pages.length === 0) return;
 
@@ -125,7 +140,8 @@ export function useGalleryContents(windowId) {
         direction: getSequenceViewingDirection(state, { manifestId }) || 'left-to-right',
         lookup,
         manifestId,
-        pages,
+        // A book's pages are sized from their canvases' proportions, without waiting for image info
+        pages: pages.map((page) => ({ ...page, size: physicalSize(page.evidence, page.aspect) })),
         paged,
         provider:
           getManifestProviderName(state, { manifestId }) ||

@@ -7,7 +7,9 @@ import { getIiifResourceImageService } from '../../lib/iiif';
 import { useCanvasAnnotations } from '../hooks/useCanvasAnnotations';
 import { fetchInfoResponse } from '../../state/actions';
 import { selectInfoResponses } from '../../state/selectors';
-import { leafSide, PAGE, SPINE_GAP, spreadLayout, turnFromPinch } from '../lib/bookLayout';
+import { handGain, usePinchHand } from '../hooks/usePinchHand';
+import { bookBoard, leafSide, leafTurn, PAGE, SPINE_GAP, spreadLayout, turnFromPinch } from '../lib/bookLayout';
+import { sizeLine } from '../lib/physicalSize';
 import { TileCache } from '../lib/TileCache';
 import { bookLabelLines } from '../lib/wallLabel';
 import { AnnotationPins } from './AnnotationPins';
@@ -20,20 +22,29 @@ import { WallLabel } from './WallLabel';
 
 // The book board's slope from horizontal: steep enough to read from a chair
 const TILT = (30 * Math.PI) / 180;
-const BOARD = { depth: 0.68, thickness: 0.025, width: 1 };
+const BOARD_THICKNESS = 0.025;
 const PLINTH = { depth: 0.5, width: 0.72 };
 // The open book's block of pages, under the two that show
 const BLOCK = { margin: 0.012, thickness: 0.018 };
-const FLIP_SECONDS = 0.7;
-// How high the turning leaf lifts at the top of its turn
+// How fast a leaf settles once let go (or turned by a button), and how high it lifts mid-turn
+const FLIP_RATE = 6;
 const FLIP_LIFT = 0.05;
-const BUTTON_ROW = -BOARD.depth / 2 - 0.05;
-const TOOL_ROW = BUTTON_ROW - 0.07;
+// A pinch that moves less than this (metres) is a tap, and turns the page
+const TAP_MOVEMENT = 0.025;
+// Let go of a leaf past this much of its turn and it carries on over
+const TURN_COMMIT = 0.3;
+// A leaf follows the hand a little faster than under the fingers, so a short pull turns it
+const PAGE_PULL = 1.3;
+// Metres below the board that the buttons sit, and the gap to their row of tools
+const BUTTON_GAP = 0.05;
+const TOOL_ROW_GAP = 0.07;
 const TOOL_SPACING = 0.24;
-// Metres from the middle of the book that the raking light's lamp swings round
-const LAMP_RADIUS = 0.55;
+// Metres beyond the board's edge that the raking light's lamp starts
+const LAMP_REACH = 0.05;
 const NO_CORS_NOTE = "This library's images can't be shown in XR";
 const pinchPoint = new Vector3();
+const boardAcross = new Vector3();
+const pull = new Vector3();
 
 /** The board's height from the floor at its middle: below the eyes, seated or standing */
 export const deskHeight = (eyeHeight) => Math.min(Math.max(eyeHeight - 0.45, 0.75), 1.05);
@@ -71,6 +82,7 @@ function BookPage({
   onChooseNote = undefined,
   onError,
   onPinch,
+  onPress,
   paint,
   progressRef = undefined,
   targets = undefined,
@@ -99,7 +111,15 @@ function BookPage({
 
   return (
     <group ref={group} position={[x, 0, BLOCK.thickness + 0.001]}>
-      <PreviewImage height={height} onClick={onPinch} onError={onError} paint={paint} url={page.preview} width={width} />
+      <PreviewImage
+        height={height}
+        onClick={onPinch}
+        onError={onError}
+        onPointerDown={onPress}
+        paint={paint}
+        url={page.preview}
+        width={width}
+      />
       {active && infoJson && (
         <DeepZoomImage
           boxHeight={height}
@@ -131,6 +151,7 @@ BookPage.propTypes = {
   onChooseNote: PropTypes.func,
   onError: PropTypes.func.isRequired,
   onPinch: PropTypes.func.isRequired,
+  onPress: PropTypes.func.isRequired,
   paint: PropTypes.objectOf(PropTypes.shape({ value: PropTypes.any })).isRequired,
   progressRef: PropTypes.shape({ current: PropTypes.object }),
   targets: PropTypes.shape({ current: PropTypes.array }),
@@ -185,8 +206,9 @@ const opposite = (side) => (side === 'right' ? 'left' : 'right');
 /**
  * A reading lectern in the reading room: a white plinth with a sloping
  * walnut board, and a book open on it at `spread`. Pinch it to walk up to
- * it; once you're reading, pinch the right-hand page to read on and the
- * left-hand page to go back, and the page turns over. Previous and next
+ * it; once you're reading, take hold of the right-hand page and pull it
+ * over to read on, or the left-hand page to go back (a quick pinch turns
+ * it too). Previous and next
  * buttons do the same, beside Relief and Gloss (with the raking light's
  * lamp to move while either is on), and a label beside the
  * board names the book and the pages it's open at. The lectern's reading
@@ -217,7 +239,9 @@ export function Lectern({
   const previews = useContext(PreviewCacheContext);
   const board = useRef();
   const leaf = useRef();
-  const flipTime = useRef(0);
+  // How far the turning leaf is over (0 to 1), and whether the hand or its own momentum moves it
+  const drive = useRef({ byHand: false, progress: 0, target: 1 });
+  const grab = usePinchHand();
   const progress = [useRef({ ready: 0, total: 0 }), useRef({ ready: 0, total: 0 })];
   const [shown, setShown] = useState(spread);
   const [flip, setFlip] = useState(null);
@@ -227,11 +251,11 @@ export function Lectern({
 
   useEffect(() => () => plinth.dispose(), [plinth]);
 
-  // A step to the next or previous spread turns the page; a jump just opens there
+  // A step to the next or previous spread (from the buttons) turns the page; a jump just opens there
   useEffect(() => {
     if (flip || spread === shown) return;
     if (book.paged && Math.abs(spread - shown) === 1) {
-      flipTime.current = 0;
+      drive.current = { byHand: false, progress: 0, target: 1 };
       setFlip({ direction: Math.sign(spread - shown), from: shown, to: spread });
     } else {
       setShown(spread);
@@ -240,19 +264,28 @@ export function Lectern({
 
   useFrame((_state, delta) => {
     if (!flip || !leaf.current) return;
-    flipTime.current += delta;
-    const t = Math.min(1, flipTime.current / FLIP_SECONDS);
-    const eased = t * t * (3 - 2 * t);
+    const turn = drive.current;
+    if (!turn.byHand) {
+      turn.progress += (turn.target - turn.progress) * (1 - Math.exp(-delta * FLIP_RATE));
+      if (Math.abs(turn.target - turn.progress) < 0.004) turn.progress = turn.target;
+    }
     // A right-hand page turns over leftwards, a left-hand one rightwards
-    leaf.current.rotation.y = (leafSide(book, flip.direction) === 'right' ? -1 : 1) * Math.PI * eased;
-    leaf.current.position.z = BLOCK.thickness + 0.003 + FLIP_LIFT * Math.sin(Math.PI * t);
-    if (t >= 1) {
+    leaf.current.rotation.y = (leafSide(book, flip.direction) === 'right' ? -1 : 1) * Math.PI * turn.progress;
+    leaf.current.position.z = BLOCK.thickness + 0.003 + FLIP_LIFT * Math.sin(Math.PI * turn.progress);
+    if (turn.byHand || turn.progress !== turn.target) return;
+
+    // Settled: over onto the next spread, or back where it was
+    setFlip(null);
+    if (turn.target === 1) {
       setShown(flip.to);
-      setFlip(null);
+      if (flip.fromHand) onTurn(flip.direction);
     }
   });
 
   const layout = useMemo(() => spreadLayout(book, shown), [book, shown]);
+  // The board fits the book's largest opening, so it stays put as pages turn
+  const { block, board: boardSize } = useMemo(() => bookBoard(book), [book]);
+  const buttonRow = -boardSize.depth / 2 - BUTTON_GAP;
   // Up to two pages show at a time; each has its own annotations
   const reading = active && !flip;
   const notes = [
@@ -303,15 +336,56 @@ export function Lectern({
     return () => urls.forEach((url) => previews.release(url));
   }, [active, book, previews, shown]);
 
-  /** Pinching a page: turn it if you're reading this book, else walk up to it */
+  /** Pinching a page of a book you're not reading walks you up to it */
   const handlePagePinch = (event) => {
     event.stopPropagation();
-    if (!active) {
-      onSelect();
+    if (!active) onSelect();
+  };
+
+  /**
+   * Taking hold of a page of the book you're reading: pull it towards the
+   * spine and the leaf follows your hand over; let go past TURN_COMMIT of
+   * the way and it carries on, or before that it falls back. A quick pinch
+   * without moving turns it too.
+   */
+  const handlePagePress = (event) => {
+    if (!active) return;
+    event.stopPropagation();
+    if (flip) return;
+    board.current.worldToLocal(pinchPoint.copy(event.point));
+    const direction = turnFromPinch(book, pinchPoint.x);
+    const to = shown + direction;
+    if (to < 0 || to >= book.spreads.length) return;
+    if (!book.paged) {
+      onTurn(direction);
       return;
     }
-    board.current.worldToLocal(pinchPoint.copy(event.point));
-    onTurn(turnFromPinch(book, pinchPoint.x));
+
+    const side = leafSide(book, direction);
+    const pageWidth = bySide(spreadLayout(book, shown), side)?.width ?? PAGE.width;
+    const at = event.point.clone();
+    const turn = { byHand: true, progress: 0, target: 1 };
+    let gain = null;
+    let moved = 0;
+    drive.current = turn;
+    setFlip({ direction, from: shown, fromHand: true, to });
+
+    grab({
+      /** The leaf turns as far as the hand has pulled it across the board */
+      onMove: (hand, start, head) => {
+        gain ??= handGain(head, start, at) * PAGE_PULL;
+        pull.copy(hand).sub(start);
+        moved = Math.max(moved, pull.length());
+        boardAcross.setFromMatrixColumn(board.current.matrixWorld, 0).normalize();
+        const across = pull.dot(boardAcross) * gain;
+        turn.progress = leafTurn(side === 'right' ? -across : across, pageWidth);
+      },
+      /** Let go: a tap or a pull far enough turns the page, a short pull doesn't */
+      onRelease: () => {
+        turn.byHand = false;
+        turn.target = moved < TAP_MOVEMENT || turn.progress >= TURN_COMMIT ? 1 : 0;
+      },
+    });
   };
 
   const labelLines = useMemo(
@@ -320,6 +394,8 @@ export function Lectern({
         note: failed ? NO_CORS_NOTE : undefined,
         pages: layout.map(({ page }) => page.label),
         provider: book.provider,
+        // Pages without a recorded size are fitted to the board
+        size: layout[0]?.page.size?.approximate ? 'Size not recorded' : layout[0] && sizeLine(layout[0].page.size),
         title: book.title,
       }),
     [book.provider, book.title, failed, layout],
@@ -338,20 +414,18 @@ export function Lectern({
       </mesh>
       <group ref={board} position={[0, height, 0]} rotation-x={TILT - Math.PI / 2}>
         <mesh
-          position={[0, 0, -BOARD.thickness / 2]}
+          position={[0, 0, -BOARD_THICKNESS / 2]}
           onClick={(event) => {
             event.stopPropagation();
             onSelect();
           }}
         >
-          <boxGeometry args={[BOARD.width + 0.04, BOARD.depth + 0.04, BOARD.thickness]} />
+          <boxGeometry args={[boardSize.width + 0.04, boardSize.depth + 0.04, BOARD_THICKNESS]} />
           <meshStandardMaterial color="#3b2f22" roughness={0.55} />
         </mesh>
         {book.paged && (
           <mesh position={[0, 0, BLOCK.thickness / 2]}>
-            <boxGeometry
-              args={[2 * PAGE.width + SPINE_GAP + 2 * BLOCK.margin, PAGE.height + 2 * BLOCK.margin, BLOCK.thickness]}
-            />
+            <boxGeometry args={[block.width + 2 * BLOCK.margin, block.height + 2 * BLOCK.margin, BLOCK.thickness]} />
             <meshStandardMaterial color="#ece2cc" roughness={0.85} />
           </mesh>
         )}
@@ -366,6 +440,7 @@ export function Lectern({
             onChooseNote={setChosenNote}
             onError={() => setFailed(true)}
             onPinch={handlePagePinch}
+            onPress={handlePagePress}
             paint={paint}
             progressRef={progress[index]}
             targets={targets}
@@ -373,27 +448,33 @@ export function Lectern({
           />
         ))}
         {turning && <Leaf back={turning.back} front={turning.front} leaf={leaf} paint={paint} side={turning.side} />}
-        <WallLabel lines={labelLines} position={[BOARD.width / 2 + 0.07, BOARD.depth / 2 - 0.02, 0.002]} />
-        {active && (paintOn || glossOn) && <RakingLight paint={paint} radius={LAMP_RADIUS} />}
+        <WallLabel lines={labelLines} position={[boardSize.width / 2 + 0.07, boardSize.depth / 2 - 0.02, 0.002]} />
+        {active && (paintOn || glossOn) && (
+          <RakingLight paint={paint} radius={Math.max(boardSize.width, boardSize.depth) / 2 + LAMP_REACH} />
+        )}
         {active && (
           <>
-            <LoadingCue position={[0, -PAGE.height / 2 - 0.03, BLOCK.thickness + 0.002]} progressRefs={progress} width={0.3} />
-            <LabelButton onClick={() => onTurn(-1)} position={[-0.37, BUTTON_ROW, 0.004]} text="‹ Page" />
+            <LoadingCue position={[0, -block.height / 2 - 0.03, BLOCK.thickness + 0.002]} progressRefs={progress} width={0.3} />
+            <LabelButton onClick={() => onTurn(-1)} position={[-0.37, buttonRow, 0.004]} text="‹ Page" />
             <LabelButton
               active={paintOn}
               onClick={onPaint}
-              position={[-0.12, BUTTON_ROW, 0.004]}
+              position={[-0.12, buttonRow, 0.004]}
               text={paintOn ? 'Relief: On' : 'Relief: Off'}
             />
             <LabelButton
               active={glossOn}
               onClick={onGloss}
-              position={[0.12, BUTTON_ROW, 0.004]}
+              position={[0.12, buttonRow, 0.004]}
               text={glossOn ? 'Gloss: On' : 'Gloss: Off'}
             />
-            <LabelButton onClick={() => onTurn(1)} position={[0.36, BUTTON_ROW, 0.004]} text="Page ›" />
+            <LabelButton onClick={() => onTurn(1)} position={[0.36, buttonRow, 0.004]} text="Page ›" />
             {tools.map(({ key, ...tool }, index) => (
-              <LabelButton key={key} position={[(index - (tools.length - 1) / 2) * TOOL_SPACING, TOOL_ROW, 0.004]} {...tool} />
+              <LabelButton
+                key={key}
+                position={[(index - (tools.length - 1) / 2) * TOOL_SPACING, buttonRow - TOOL_ROW_GAP, 0.004]}
+                {...tool}
+              />
             ))}
           </>
         )}

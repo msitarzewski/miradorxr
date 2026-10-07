@@ -43,15 +43,17 @@ export function wallLabelLines({
 
 /**
  * Label lines for a book on a lectern: its title, the pages it's open at,
- * where it's from, and an optional note (such as why it can't be shown).
+ * where it's from, its size, and an optional note (such as why it can't be
+ * shown).
  *
  * @param {string[]} options.pages - labels of the pages showing, in reading order
  */
-export function bookLabelLines({ note = undefined, pages = [], provider = undefined, title = undefined }) {
+export function bookLabelLines({ note = undefined, pages = [], provider = undefined, size = undefined, title = undefined }) {
   return [
     { style: 'title', text: plainText(title) },
     { style: 'body', text: pages.map(plainText).filter(Boolean).join(' – ') },
     { style: 'body', text: plainText(provider) },
+    { style: 'small', text: plainText(size) },
     { style: 'small', text: plainText(note) },
   ].filter(({ text }) => text);
 }

@@ -1,4 +1,5 @@
 // Metres
+export const WALL_HEIGHT = 3.4;
 const MIN_GAP = 0.9;
 const WALL_INSET = 0.05;
 const ROOM_ASPECT = 1.5;
@@ -75,22 +76,25 @@ function fillWalls(widths, size, doorway) {
 /**
  * Hangs works around a rectangular room centred on the origin, in order,
  * with each wall's paintings evenly spaced. With a `doorway` (metres wide),
- * the middle of the back wall is left clear for it.
+ * the middle of the back wall is left clear for it. The room is always deep
+ * enough to step back and see its largest work whole.
  *
- * @param {number[]} aspectRatios - width / height of each work, in order
- * @param {number} options.paintingHeight - display height of every work
+ * @param {Array<{width, height}>} sizes - each work's size in metres, in order
  * @param {number} options.doorway - width to keep clear for a doorway, if any
- * @returns {{room: {width, depth}, placements: Array<{x, z, yaw, width, height}>, doorway: {x, z, width}|null}}
- * where (x, z) is the painting's centre on the wall and yaw turns a
- * painting facing +z to face into the room; the doorway's (x, z) is the
- * middle of its opening on the floor
+ * @returns {{room: {width, depth}, placements: Array<{x, z, yaw, width, height, view, close}>, doorway: {x, z, width}|null}}
+ * where (x, z) is the painting's centre on the wall, yaw turns a painting
+ * facing +z to face into the room, and view and close are the distances to
+ * stand at to see it whole and to look closely; the doorway's (x, z) is
+ * the middle of its opening on the floor
  */
-export function layoutGallery(aspectRatios, { doorway = 0, paintingHeight = 1 } = {}) {
-  const widths = aspectRatios.map((aspect) => paintingHeight * aspect);
+export function layoutGallery(sizes, { doorway = 0 } = {}) {
+  const widths = sizes.map(({ width }) => width);
   const total = widths.reduce((sum, width) => sum + width + MIN_GAP, MIN_GAP) + doorway;
 
   // Start from a room whose perimeter just fits, and grow until every wall fits
-  let perimeter = Math.max(total, 8);
+  // and there's room to step back from the largest work
+  const stepBack = Math.max(0, ...sizes.map((work) => viewingDistances(work).view)) + 0.6;
+  let perimeter = Math.max(total, 8, 2 * (1 + ROOM_ASPECT) * stepBack);
   let size;
   let walls;
   do {
@@ -120,7 +124,8 @@ export function layoutGallery(aspectRatios, { doorway = 0, paintingHeight = 1 } 
       hung.forEach((index) => {
         const along = offset + widths[index] / 2;
         placements[index] = {
-          height: paintingHeight,
+          ...viewingDistances(sizes[index], { depth: size[1], width: size[0] }),
+          height: sizes[index].height,
           width: widths[index],
           x: startX + wall.along[0] * along + wall.normal[0] * WALL_INSET,
           yaw: Math.atan2(wall.normal[0], wall.normal[1]),
@@ -172,6 +177,43 @@ export function layoutReadingRoom(count, { front = null } = {}) {
   });
 
   return { lecterns, room: { depth, width, x: 0, z: doorWall + depth / 2 } };
+}
+
+// Comfortable fields of view for taking in a whole work, as tangents of half the angle
+const SEE_WHOLE = { across: Math.tan((30 * Math.PI) / 180), up: Math.tan((22.5 * Math.PI) / 180) };
+// Metres: never nearer than this to see a work whole, nor further
+const VIEW_RANGE = { max: 4, min: 0.75 };
+// Metres from any work for a close look at its detail: the same for every work, whatever its size
+export const CLOSE_DISTANCE = 0.55;
+
+/**
+ * How far from a work to stand: `view`, to take it in whole with a little
+ * room round it, and `close`, to look into its detail. Bigger works are seen
+ * from further back, but never from beyond the room's opposite wall; the
+ * close look is always CLOSE_DISTANCE.
+ */
+export function viewingDistances({ height, width }, room) {
+  const whole = 1.1 * Math.max(height / 2 / SEE_WHOLE.up, width / 2 / SEE_WHOLE.across);
+  const roomLimit = room ? Math.min(room.width, room.depth) - 0.6 : VIEW_RANGE.max;
+  const view = Math.max(VIEW_RANGE.min, Math.min(whole, VIEW_RANGE.max, roomLimit));
+  return { close: CLOSE_DISTANCE, view };
+}
+
+// Metres of clear wall kept below and above a hung work
+const FLOOR_CLEARANCE = 0.3;
+const CEILING_CLEARANCE = 0.25;
+
+/**
+ * The height to hang a work's centre at: the viewer's eye height, as
+ * galleries hang, unless that would take a large work too near the floor
+ * or the ceiling.
+ */
+export function hangingCentre(eyeHeight, height, wallHeight = WALL_HEIGHT) {
+  const lowest = height / 2 + FLOOR_CLEARANCE;
+  const highest = wallHeight - CEILING_CLEARANCE - height / 2;
+  // Too tall for both: midway between them
+  if (lowest > highest) return (lowest + highest) / 2;
+  return Math.max(lowest, Math.min(eyeHeight, highest));
 }
 
 /**
@@ -227,8 +269,8 @@ const WALL_CLEARANCE = 0.15;
  * doorway at its middle. `floors` are where you can land: the rooms, clear
  * of their walls, and the doorway between them.
  */
-export function planGallery(aspectRatios, bookCount) {
-  const hall = aspectRatios.length > 0 ? layoutGallery(aspectRatios, { doorway: bookCount > 0 ? DOORWAY.width : 0 }) : null;
+export function planGallery(sizes, bookCount) {
+  const hall = sizes.length > 0 ? layoutGallery(sizes, { doorway: bookCount > 0 ? DOORWAY.width : 0 }) : null;
   const reading =
     bookCount > 0 ? layoutReadingRoom(bookCount, { front: hall ? hall.room.depth / 2 + WALL_THICKNESS : null }) : null;
   const doorway = hall?.doorway && reading ? { ...DOORWAY, thickness: WALL_THICKNESS, x: 0, z: hall.doorway.z } : null;
@@ -255,18 +297,20 @@ export function planGallery(aspectRatios, bookCount) {
 /**
  * Where two works float to be compared: side by side in front of a viewer
  * at `head` ({x, z, yaw}), `distance` metres out at eye `height`, the first
- * on the left, each turned to face the viewer, and scaled down together if
- * need be so the pair spans no more than `maxWidth` metres.
+ * on the left, each turned to face the viewer. Both keep their true sizes
+ * relative to each other, scaled down together if need be so the pair is
+ * no more than `maxWidth` across or `maxHeight` tall.
  *
- * @param {number[]} widths - the two works' widths, metres
+ * @param {Array<{width, height}>} sizes - the two works' sizes, metres
  * @returns {Array<{x, y, z, yaw, scale}>} yaw turns a work facing +z to face the viewer
  */
-export function compareSpots(head, widths, { distance = 1.15, gap = 0.25, height, maxWidth = 1.7 }) {
-  const scale = Math.min(1, maxWidth / (widths[0] + widths[1] + gap));
+export function compareSpots(head, sizes, { distance = 1.15, gap = 0.25, height, maxHeight = 1.3, maxWidth = 1.7 }) {
+  const [first, second] = sizes;
+  const scale = Math.min(1, maxWidth / (first.width + second.width + gap), maxHeight / Math.max(first.height, second.height));
   // A heading of 0 looks down -z
   const centre = { x: head.x - Math.sin(head.yaw) * distance, z: head.z - Math.cos(head.yaw) * distance };
   const right = { x: Math.cos(head.yaw), z: -Math.sin(head.yaw) };
-  const offsets = [-(widths[0] * scale + gap) / 2, (widths[1] * scale + gap) / 2];
+  const offsets = [-(first.width * scale + gap) / 2, (second.width * scale + gap) / 2];
 
   return offsets.map((offset) => {
     const x = centre.x + right.x * offset;
